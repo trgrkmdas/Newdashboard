@@ -1,0 +1,550 @@
+/* ============================================
+   RESPONSIVE.CSS - Responsive Stiller
+   Media Queries for Mobile, Tablet, Landscape
+   ============================================ */
+
+/* Mobile (max-width: 768px) */
+@media (max-width: 768px) {
+    /* Body ve Container */
+    body {
+        padding: 15px 20px;
+    }
+    
+    .container {
+        border-radius: 10px;
+    }
+    
+    /* Header - Responsive */
+    .header {
+        padding: 12px 16px;
+        min-height: 64px;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .header-brand {
+        gap: 8px;
+    }
+    
+    .header-icon {
+        font-size: 1.5em;
+    }
+    
+    .header h1 {
+        font-size: 1.1em;
+    }
+    
+    .header p {
+        font-size: 0.75em;
+    }
+    
+    .user-info {
+        padding: 6px 10px;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    
+    .user-avatar {
+        width: 32px;
+        height: 32px;
+    }
+    
+    .user-initial {
+        font-size: 0.9em;
+    }
+    
+    .user-email-badge {
+        font-size: 0.75em;
+        max-width: 120px;
+        padding: 3px 6px;
+    }
+    
+    .user-divider {
+        height: 20px;
+    }
+    
+    .user-info .btn-icon {
+        min-width: 32px;
+        height: 32px;
+        padding: 6px;
+        font-size: 1em;
+    }
+    
+    .user-info .btn-logout {
+        padding: 6px 10px;
+        font-size: 0.8em;
+        gap: 4px;
+    }
+    
+    .btn-icon-text {
+        font-size: 0.9em;
+    }
+    
+    .btn-logout .btn-text {
+        display: none; /* Mobilde sadece icon göster */
+    }
+    
+    /* Header Stats - Responsive */
+    .header-stats {
+        gap: 8px;
+        order: 3;
+        width: 100%;
+        justify-content: center;
+        margin-top: 8px;
+    }
+    
+    .stat-badge {
+        padding: 5px 10px;
+        gap: 6px;
+        flex: 1;
+        min-width: 0;
+        max-width: 100%;
+    }
+    
+    .stat-badge.year-toggle-wrapper {
+        flex: 0 1 auto;
+        padding: 6px 12px;
+    }
+    
+    .year-toggle-wrapper .year-toggle-container {
+        gap: 6px;
+    }
+    
+    .stat-icon {
+        font-size: 0.9em;
+    }
+    
+    .stat-label {
+        font-size: 0.65em;
+    }
+    
+    .stat-value {
+        font-size: 0.75em;
+    }
+    
+    .header-brand {
+        order: 1;
+    }
+    
+    .user-info {
+        order: 2;
+    }
+    
+    /* Channel Filter Section - Responsive */
+    .channel-filter-section {
+        padding: 16px;
+    }
+    
+    .channel-filter-section h3 {
+        font-size: 1em;
+        margin-bottom: 12px;
+    }
+    
+    .channel-filter-grid {
+        gap: 8px;
+    }
+    
+    .channel-filter-label {
+        padding: 8px 12px;
+        font-size: 0.85em;
+    }
+    
+    .channel-filter-label input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+    }
+    
+    /* channelFilterInfo removed - no longer needed */
+    
+    /* AI Query Section - Responsive */
+    .ai-query-section {
+        padding: 12px;
+        margin-top: 14px;
+    }
+    
+    .ai-query-container {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    #aiQueryInput {
+        padding: 10px 14px;
+        font-size: 0.85em;
+    }
+    
+    #aiQueryButton {
+        padding: 10px 16px;
+        font-size: 0.85em;
+        width: 100%;
+        justify-content: center;
+    }
+    
+    /* Info Cards */
+    .info-cards {
+        grid-template-columns: 1fr;
+        gap: 10px;
+        padding: 15px;
+    }
+    
+    .info-card {
+        padding: 15px;
+    }
+    
+    .info-card h3 {
+        font-size: 0.9em;
+    }
+    
+    .info-card p {
+        font-size: 1.2em;
+    }
+
+    /* Mobil: SON GUNCELLEME ve TOPLAM KAYİT kartları küçük font */
+    #lastUpdate,
+    #totalRecords {
+        font-size: 0.75em !important;
+    }
+    
+    /* Tab Navigation - Premium Compact Responsive */
+    .tabs-wrapper {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+    }
+    
+    .tabs {
+        padding: 6px 12px;
+        gap: 3px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .tabs::-webkit-scrollbar {
+        height: 3px;
+    }
+    
+    .tabs::-webkit-scrollbar-thumb {
+        background: rgba(102, 126, 234, 0.4);
+    }
+    
+    .tab {
+        padding: 6px 10px;
+        font-size: 0.8em;
+        min-height: 32px;
+        gap: 4px;
+    }
+    
+    .tab-icon {
+        font-size: 1em;
+    }
+    
+    .tab-text {
+        max-width: 100px;
+        font-size: 0.85em;
+    }
+    
+    .tab.active::after {
+        width: 50%;
+        height: 2px;
+    }
+    
+    /* Content */
+    .content {
+        padding: 15px;
+    }
+    
+    .content h2 {
+        font-size: 1.3em;
+        margin-bottom: 15px;
+    }
+    
+    .content h3 {
+        font-size: 1.1em;
+        margin-bottom: 10px;
+    }
+    
+    /* Summary Cards */
+    .summary-cards {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    .summary-card {
+        padding: 15px;
+    }
+    
+    .summary-card h3 {
+        font-size: 0.9em;
+    }
+    
+    .summary-card p {
+        font-size: 1.3em;
+    }
+    
+    /* Filters */
+    .filters {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .filter-group {
+        padding: 12px;
+    }
+    
+    .filter-group label {
+        font-size: 0.9em;
+    }
+    
+    .filter-group select,
+    .filter-group input {
+        font-size: 0.9em;
+        padding: 10px;
+    }
+    
+    /* Multi-select dropdowns */
+    .multi-select-dropdown {
+        max-height: 200px;
+    }
+    
+    .checkbox-item {
+        padding: 10px 8px;
+    }
+    
+    .checkbox-item label {
+        font-size: 0.9em;
+    }
+    
+    /* Search Section */
+    .search-section {
+        padding: 15px;
+    }
+    
+    .search-box input {
+        font-size: 0.9em;
+        padding: 12px;
+    }
+    
+    .search-box button {
+        padding: 12px 20px;
+        font-size: 0.9em;
+    }
+    
+    /* Buttons */
+    button {
+        padding: 12px 20px;
+        font-size: 0.9em;
+        min-height: 44px; /* Touch-friendly */
+    }
+    
+    /* Charts */
+    .chart-container {
+        min-height: 250px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .chart-container h3 {
+        font-size: 1em;
+        margin-bottom: 10px;
+    }
+    
+    /* Charts Grid - Tek sütun */
+    .content > div[style*="grid-template-columns"] {
+        grid-template-columns: 1fr !important;
+        gap: 15px !important;
+    }
+    
+    /* Tables - Yatay Scroll */
+    table {
+        font-size: 0.85em;
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    table thead,
+    table tbody,
+    table tr {
+        display: table;
+        width: 100%;
+        table-layout: fixed;
+    }
+    
+    table th,
+    table td {
+        padding: 8px !important;
+        min-width: 80px;
+    }
+    
+    /* Scroll Hint for Tables */
+    table::after {
+        content: "← Kaydırın →";
+        display: block;
+        text-align: center;
+        padding: 10px;
+        background: #f8f9fa;
+        color: #6c757d;
+        font-size: 0.85em;
+        border-top: 1px solid #dee2e6;
+    }
+    
+    /* Hide table scroll hint after first scroll */
+    table.scrolled::after {
+        display: none;
+    }
+    
+    /* Customer Cards */
+    .customer-card {
+        margin-bottom: 15px;
+    }
+    
+    .customer-grid {
+        grid-template-columns: 1fr !important;
+        gap: 15px !important;
+    }
+    
+    /* Target Section */
+    .target-section {
+        padding: 15px;
+    }
+    
+    .target-input-group {
+        grid-template-columns: 1fr !important;
+        gap: 15px;
+    }
+    
+    .target-input-group input {
+        font-size: 0.9em;
+        padding: 10px;
+    }
+    
+    /* Progress Bars */
+    .progress-item {
+        margin-bottom: 15px;
+    }
+    
+    /* AI Analysis Panel */
+    .analysis-panel {
+        padding: 20px 15px;
+    }
+    
+    .analysis-section {
+        margin: 15px 0;
+    }
+    
+    .insight-item {
+        padding: 12px;
+        margin: 8px 0;
+        font-size: 0.9em;
+    }
+    
+    .recommendation {
+        padding: 12px;
+        margin: 10px 0;
+        font-size: 0.9em;
+    }
+    
+    /* Product/Customer Search Results */
+    #productResultsContainer,
+    #customerProfileContainer,
+    #customerProfileMainContainer,
+    #salespersonProfileContainer,
+    #cityAnalysisContainer {
+        padding: 10px;
+    }
+    
+    /* Responsive Grid Layouts */
+    div[style*="grid-template-columns: repeat(auto-fit"] {
+        grid-template-columns: 1fr !important;
+    }
+    
+    /* Input Fields */
+    input[type="text"],
+    input[type="number"],
+    select,
+    textarea {
+        font-size: 16px !important; /* Prevent zoom on iOS */
+    }
+    
+    /* Voice Button */
+    #voiceButton {
+        width: 44px;
+        height: 44px;
+        padding: 10px;
+    }
+    
+    /* Excel Export Button */
+    button[onclick*="exportToExcel"] {
+        width: 100%;
+        margin-top: 10px;
+    }
+    
+    /* Debug Panel */
+    #debugPanel {
+        font-size: 0.8em;
+        padding: 10px;
+    }
+    
+    /* Compact spacing for mobile */
+    .content > * {
+        margin-bottom: 20px;
+    }
+    
+    /* Modal/Alert improvements */
+    .swal2-popup {
+        width: 90% !important;
+        font-size: 0.9em !important;
+    }
+}
+
+/* Tablet (768px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .container {
+        max-width: 100%;
+    }
+    
+    .tabs {
+        padding: 8px 14px;
+        gap: 4px;
+    }
+    
+    .tab {
+        font-size: 0.85em;
+        padding: 8px 12px;
+        min-height: 34px;
+    }
+    
+    .tab-text {
+        max-width: 110px;
+    }
+    
+    .content {
+        padding: 20px;
+    }
+    
+    /* 2 sütun layout for tablets */
+    .filters {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    div[style*="grid-template-columns: repeat(auto-fit"] {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+}
+
+/* Landscape Mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+    .header h1 {
+        font-size: 1.2em;
+    }
+    
+    .chart-container {
+        min-height: 200px;
+    }
+    
+    /* 2 sütun for landscape */
+    .summary-cards {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+

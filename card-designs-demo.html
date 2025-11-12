@@ -1,0 +1,1970 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium Kart Tasarım Örnekleri</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+            color: #e2e8f0;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 50px;
+            font-size: 2.5em;
+            color: white;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .design-section {
+            margin-bottom: 60px;
+        }
+
+        .design-title {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            color: #10B981;
+            padding-bottom: 10px;
+            border-bottom: 2px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        /* TASARIM 1: Glassmorphism - Cam Efekti */
+        .card-style-1 {
+            background: rgba(30, 41, 59, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            color: white;
+            padding: 10px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-style-1::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.8), transparent);
+        }
+
+        .card-style-1 h3 {
+            font-size: 0.75em;
+            opacity: 0.9;
+            margin-bottom: 5px;
+            line-height: 1.2;
+        }
+
+        .card-style-1 p {
+            font-size: 1.1em;
+            font-weight: 700;
+            line-height: 1.2;
+            margin: 5px 0;
+        }
+
+        .card-style-1 small {
+            font-size: 0.7em;
+            line-height: 1.2;
+            opacity: 0.8;
+        }
+
+        /* TASARIM 2: Neumorphism - Yumuşak Gölge */
+        .card-style-2 {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            color: white;
+            padding: 10px;
+            border-radius: 16px;
+            box-shadow: 
+                8px 8px 16px rgba(0, 0, 0, 0.4),
+                -4px -4px 8px rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+        }
+
+        .card-style-2::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: 16px;
+            padding: 1px;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(59, 130, 246, 0.3));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+        }
+
+        .card-style-2 h3 {
+            font-size: 0.75em;
+            opacity: 0.9;
+            margin-bottom: 5px;
+            line-height: 1.2;
+        }
+
+        .card-style-2 p {
+            font-size: 1.1em;
+            font-weight: 700;
+            line-height: 1.2;
+            margin: 5px 0;
+        }
+
+        .card-style-2 small {
+            font-size: 0.7em;
+            line-height: 1.2;
+            opacity: 0.8;
+        }
+
+        /* TASARIM 3: Gradient Border - Renkli Kenarlık */
+        .card-style-3 {
+            background: rgba(15, 23, 42, 0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 12px;
+            position: relative;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+        }
+
+        .card-style-3::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(135deg, #10B981, #3B82F6, #8B5CF6, #EC4899);
+            border-radius: 12px;
+            z-index: -1;
+            opacity: 0.6;
+            animation: gradient-rotate 3s ease infinite;
+        }
+
+        @keyframes gradient-rotate {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .card-style-3 h3 {
+            font-size: 0.75em;
+            opacity: 0.9;
+            margin-bottom: 5px;
+            line-height: 1.2;
+        }
+
+        .card-style-3 p {
+            font-size: 1.1em;
+            font-weight: 700;
+            line-height: 1.2;
+            margin: 5px 0;
+            background: linear-gradient(135deg, #10B981, #3B82F6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .card-style-3 small {
+            font-size: 0.7em;
+            line-height: 1.2;
+            opacity: 0.8;
+        }
+
+        /* TASARIM 4: 3D Lift - Yükselme Efekti */
+        .card-style-4 {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+            color: white;
+            padding: 10px;
+            border-radius: 12px;
+            box-shadow: 
+                0 4px 6px rgba(0, 0, 0, 0.3),
+                0 10px 20px rgba(0, 0, 0, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.3s ease;
+        }
+
+        .card-style-4::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(16, 185, 129, 0.2) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .card-style-4:hover::before {
+            opacity: 1;
+        }
+
+        .card-style-4 h3 {
+            font-size: 0.75em;
+            opacity: 0.9;
+            margin-bottom: 5px;
+            line-height: 1.2;
+            position: relative;
+            z-index: 1;
+        }
+
+        .card-style-4 p {
+            font-size: 1.1em;
+            font-weight: 700;
+            line-height: 1.2;
+            margin: 5px 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .card-style-4 small {
+            font-size: 0.7em;
+            line-height: 1.2;
+            opacity: 0.8;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* TASARIM 5: Minimalist Premium - Temiz ve Şık */
+        .card-style-5 {
+            background: rgba(30, 41, 59, 0.6);
+            color: white;
+            padding: 10px;
+            border-radius: 10px;
+            border-left: 3px solid #10B981;
+            box-shadow: 
+                0 2px 8px rgba(0, 0, 0, 0.2),
+                0 0 0 1px rgba(255, 255, 255, 0.05);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-style-5::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 60px;
+            height: 60px;
+            background: radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, transparent 70%);
+            border-radius: 50%;
+            transform: translate(30%, -30%);
+        }
+
+        .card-style-5 h3 {
+            font-size: 0.75em;
+            opacity: 0.9;
+            margin-bottom: 5px;
+            line-height: 1.2;
+            position: relative;
+            z-index: 1;
+        }
+
+        .card-style-5 p {
+            font-size: 1.1em;
+            font-weight: 700;
+            line-height: 1.2;
+            margin: 5px 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .card-style-5 small {
+            font-size: 0.7em;
+            line-height: 1.2;
+            opacity: 0.8;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* TASARIM 6: Hexagon - Altıgen Şekil */
+        .card-style-6 {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px;
+            border-radius: 0;
+            clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+            position: relative;
+            transform: rotate(0deg);
+            transition: transform 0.3s ease;
+        }
+
+        .card-style-6:hover {
+            transform: rotate(5deg) scale(1.05);
+        }
+
+        .card-style-6 h3 {
+            font-size: 0.75em;
+            opacity: 0.9;
+            margin-bottom: 5px;
+            line-height: 1.2;
+            text-align: center;
+        }
+
+        .card-style-6 p {
+            font-size: 1.1em;
+            font-weight: 700;
+            line-height: 1.2;
+            margin: 5px 0;
+            text-align: center;
+        }
+
+        .card-style-6 small {
+            font-size: 0.7em;
+            line-height: 1.2;
+            opacity: 0.8;
+            text-align: center;
+            display: block;
+        }
+
+        /* TASARIM 7: Rounded Pill - Yuvarlak Kapsül */
+        .card-style-7 {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 50px;
+            box-shadow: 
+                0 4px 15px rgba(245, 87, 108, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-style-7::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+
+        .card-style-7 h3 {
+            font-size: 0.75em;
+            opacity: 0.9;
+            margin-bottom: 5px;
+            line-height: 1.2;
+            position: relative;
+            z-index: 1;
+        }
+
+        .card-style-7 p {
+            font-size: 1.1em;
+            font-weight: 700;
+            line-height: 1.2;
+            margin: 5px 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .card-style-7 small {
+            font-size: 0.7em;
+            line-height: 1.2;
+            opacity: 0.8;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* TASARIM 8: Diamond - Elmas Şekli */
+        .card-style-8 {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 10px;
+            border-radius: 0;
+            clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+            box-shadow: 0 8px 25px rgba(79, 172, 254, 0.4);
+            position: relative;
+            transform: rotate(45deg);
+            transition: transform 0.3s ease;
+        }
+
+        .card-style-8:hover {
+            transform: rotate(45deg) scale(1.1);
+        }
+
+        .card-style-8 .content {
+            transform: rotate(-45deg);
+            text-align: center;
+        }
+
+        .card-style-8 h3 {
+            font-size: 0.75em;
+            opacity: 0.9;
+            margin-bottom: 5px;
+            line-height: 1.2;
+        }
+
+        .card-style-8 p {
+            font-size: 1.1em;
+            font-weight: 700;
+            line-height: 1.2;
+            margin: 5px 0;
+        }
+
+        .card-style-8 small {
+            font-size: 0.7em;
+            line-height: 1.2;
+            opacity: 0.8;
+            display: block;
+        }
+
+        /* TASARIM 9: Rounded Square - Yuvarlatılmış Kare */
+        .card-style-9 {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: white;
+            padding: 10px;
+            border-radius: 20px;
+            box-shadow: 
+                0 6px 20px rgba(67, 233, 123, 0.3),
+                0 0 0 3px rgba(67, 233, 123, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-style-9::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, #43e97b, #38f9d7, #43e97b);
+            background-size: 200% 200%;
+            border-radius: 20px;
+            z-index: -1;
+            animation: border-glow 3s ease infinite;
+        }
+
+        @keyframes border-glow {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .card-style-9 h3 {
+            font-size: 0.75em;
+            opacity: 0.9;
+            margin-bottom: 5px;
+            line-height: 1.2;
+            position: relative;
+            z-index: 1;
+        }
+
+        .card-style-9 p {
+            font-size: 1.1em;
+            font-weight: 700;
+            line-height: 1.2;
+            margin: 5px 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .card-style-9 small {
+            font-size: 0.7em;
+            line-height: 1.2;
+            opacity: 0.8;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* TASARIM 10: Circle - Tamamen Yuvarlak */
+        .card-style-10 {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+            padding: 10px;
+            border-radius: 50%;
+            width: 140px;
+            height: 140px;
+            box-shadow: 
+                0 8px 25px rgba(250, 112, 154, 0.4),
+                inset 0 2px 10px rgba(255, 255, 255, 0.2);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        .card-style-10:hover {
+            transform: scale(1.1) rotate(5deg);
+        }
+
+        .card-style-10 h3 {
+            font-size: 0.7em;
+            opacity: 0.9;
+            margin-bottom: 3px;
+            line-height: 1.2;
+        }
+
+        .card-style-10 p {
+            font-size: 1em;
+            font-weight: 700;
+            line-height: 1.2;
+            margin: 3px 0;
+        }
+
+        .card-style-10 small {
+            font-size: 0.65em;
+            line-height: 1.2;
+            opacity: 0.8;
+        }
+
+        /* TASARIM 11: Liquid Morph - Akışkan Şekil */
+        .card-style-11 {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            color: white;
+            padding: 10px;
+            border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            position: relative;
+            animation: liquid-morph 8s ease-in-out infinite;
+            overflow: hidden;
+        }
+
+        @keyframes liquid-morph {
+            0%, 100% { border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%; }
+            25% { border-radius: 70% 30% 30% 70% / 70% 70% 30% 30%; }
+            50% { border-radius: 30% 70% 30% 70% / 70% 30% 70% 30%; }
+            75% { border-radius: 70% 30% 70% 30% / 30% 70% 30% 70%; }
+        }
+
+        .card-style-11::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, transparent 50%);
+            animation: rotate 10s linear infinite;
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .card-style-11 h3, .card-style-11 p, .card-style-11 small {
+            position: relative;
+            z-index: 1;
+        }
+
+        .card-style-11 h3 {
+            font-size: 0.75em;
+            opacity: 0.9;
+            margin-bottom: 5px;
+            line-height: 1.2;
+        }
+
+        .card-style-11 p {
+            font-size: 1.1em;
+            font-weight: 700;
+            line-height: 1.2;
+            margin: 5px 0;
+        }
+
+        .card-style-11 small {
+            font-size: 0.7em;
+            line-height: 1.2;
+            opacity: 0.8;
+        }
+
+        /* TASARIM 12: Split Design - Bölünmüş Tasarım */
+        .card-style-12 {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: white;
+            padding: 0;
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .card-style-12::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 50%;
+            height: 100%;
+            background: linear-gradient(135deg, #10B981 0%, #3B82F6 100%);
+            clip-path: polygon(0 0, 100% 0, 0 100%);
+        }
+
+        .card-style-12::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 50%;
+            height: 100%;
+            background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
+            clip-path: polygon(100% 0, 100% 100%, 0 100%);
+            opacity: 0.3;
+        }
+
+        .card-style-12 .content-wrapper {
+            padding: 10px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .card-style-12 h3 {
+            font-size: 0.75em;
+            opacity: 0.9;
+            margin-bottom: 5px;
+            line-height: 1.2;
+        }
+
+        .card-style-12 p {
+            font-size: 1.1em;
+            font-weight: 700;
+            line-height: 1.2;
+            margin: 5px 0;
+        }
+
+        .card-style-12 small {
+            font-size: 0.7em;
+            line-height: 1.2;
+            opacity: 0.8;
+        }
+
+        /* TASARIM 13: Neon Glow - Neon Işık */
+        .card-style-13 {
+            background: rgba(15, 23, 42, 0.9);
+            color: white;
+            padding: 10px;
+            border-radius: 12px;
+            border: 2px solid #10B981;
+            box-shadow: 
+                0 0 10px #10B981,
+                0 0 20px #10B981,
+                0 0 30px #10B981,
+                inset 0 0 10px rgba(16, 185, 129, 0.1);
+            position: relative;
+            animation: neon-pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes neon-pulse {
+            0%, 100% { 
+                box-shadow: 
+                    0 0 10px #10B981,
+                    0 0 20px #10B981,
+                    0 0 30px #10B981,
+                    inset 0 0 10px rgba(16, 185, 129, 0.1);
+            }
+            50% { 
+                box-shadow: 
+                    0 0 20px #10B981,
+                    0 0 30px #10B981,
+                    0 0 40px #10B981,
+                    inset 0 0 15px rgba(16, 185, 129, 0.2);
+            }
+        }
+
+        .card-style-13 h3 {
+            font-size: 0.75em;
+            opacity: 0.9;
+            margin-bottom: 5px;
+            line-height: 1.2;
+            text-shadow: 0 0 5px rgba(16, 185, 129, 0.5);
+        }
+
+        .card-style-13 p {
+            font-size: 1.1em;
+            font-weight: 700;
+            line-height: 1.2;
+            margin: 5px 0;
+            color: #10B981;
+            text-shadow: 0 0 10px rgba(16, 185, 129, 0.8);
+        }
+
+        .card-style-13 small {
+            font-size: 0.7em;
+            line-height: 1.2;
+            opacity: 0.8;
+        }
+
+        /* TASARIM 14: 3D Perspective - 3D Perspektif */
+        .card-style-14 {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px;
+            border-radius: 12px;
+            box-shadow: 
+                15px 15px 30px rgba(0, 0, 0, 0.4),
+                -5px -5px 10px rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            transform: perspective(1000px) rotateX(5deg) rotateY(-5deg);
+            transition: transform 0.3s ease;
+        }
+
+        .card-style-14:hover {
+            transform: perspective(1000px) rotateX(0deg) rotateY(0deg) translateZ(20px);
+        }
+
+        .card-style-14::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
+            border-radius: 12px;
+            pointer-events: none;
+        }
+
+        .card-style-14 h3 {
+            font-size: 0.75em;
+            opacity: 0.9;
+            margin-bottom: 5px;
+            line-height: 1.2;
+            position: relative;
+            z-index: 1;
+        }
+
+        .card-style-14 p {
+            font-size: 1.1em;
+            font-weight: 700;
+            line-height: 1.2;
+            margin: 5px 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .card-style-14 small {
+            font-size: 0.7em;
+            line-height: 1.2;
+            opacity: 0.8;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* TASARIM 15: Holographic - Hologram Efekti */
+        .card-style-15 {
+            background: linear-gradient(
+                135deg,
+                #ff006e 0%,
+                #8338ec 25%,
+                #3a86ff 50%,
+                #06ffa5 75%,
+                #ffbe0b 100%
+            );
+            background-size: 200% 200%;
+            color: white;
+            padding: 10px;
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            position: relative;
+            animation: holographic-shift 3s ease infinite;
+            overflow: hidden;
+        }
+
+        @keyframes holographic-shift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .card-style-15::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255, 255, 255, 0.4),
+                transparent
+            );
+            animation: shine 3s infinite;
+        }
+
+        @keyframes shine {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        .card-style-15::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(255, 255, 255, 0.03) 2px,
+                    rgba(255, 255, 255, 0.03) 4px
+                );
+            pointer-events: none;
+        }
+
+        .card-style-15 h3 {
+            font-size: 0.75em;
+            opacity: 0.9;
+            margin-bottom: 5px;
+            line-height: 1.2;
+            position: relative;
+            z-index: 1;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-style-15 p {
+            font-size: 1.1em;
+            font-weight: 700;
+            line-height: 1.2;
+            margin: 5px 0;
+            position: relative;
+            z-index: 1;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-style-15 small {
+            font-size: 0.7em;
+            line-height: 1.2;
+            opacity: 0.8;
+            position: relative;
+            z-index: 1;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Premium Kart Tasarım Örnekleri - Yaratıcı Tasarımlar</h1>
+
+        <!-- TASARIM 1: Glassmorphism -->
+        <div class="design-section">
+            <h2 class="design-title">Tasarım 1: Glassmorphism (Cam Efekti)</h2>
+            <div class="cards-grid">
+                <div class="card-style-1">
+                    <h3>💰 Toplam Satış</h3>
+                    <p>$38.072.982</p>
+                    <small>KDV Hariç - Tüm zamanlar</small>
+                </div>
+                <div class="card-style-1">
+                    <h3>📦 Toplam Ürün</h3>
+                    <p>431.227</p>
+                    <small>Satılan ürün adedi</small>
+                </div>
+                <div class="card-style-1">
+                    <h3>👥 Müşteri</h3>
+                    <p>12.456</p>
+                    <small>Aktif müşteri sayısı</small>
+                </div>
+                <div class="card-style-1">
+                    <h3>🎸 Farklı Ürün</h3>
+                    <p>8.234</p>
+                    <small>Ürün çeşidi</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- TASARIM 2: Neumorphism -->
+        <div class="design-section">
+            <h2 class="design-title">Tasarım 2: Neumorphism (Yumuşak Gölge)</h2>
+            <div class="cards-grid">
+                <div class="card-style-2">
+                    <h3>💰 Toplam Satış</h3>
+                    <p>$38.072.982</p>
+                    <small>KDV Hariç - Tüm zamanlar</small>
+                </div>
+                <div class="card-style-2">
+                    <h3>📦 Toplam Ürün</h3>
+                    <p>431.227</p>
+                    <small>Satılan ürün adedi</small>
+                </div>
+                <div class="card-style-2">
+                    <h3>👥 Müşteri</h3>
+                    <p>12.456</p>
+                    <small>Aktif müşteri sayısı</small>
+                </div>
+                <div class="card-style-2">
+                    <h3>🎸 Farklı Ürün</h3>
+                    <p>8.234</p>
+                    <small>Ürün çeşidi</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- TASARIM 3: Gradient Border -->
+        <div class="design-section">
+            <h2 class="design-title">Tasarım 3: Gradient Border (Renkli Kenarlık)</h2>
+            <div class="cards-grid">
+                <div class="card-style-3">
+                    <h3>💰 Toplam Satış</h3>
+                    <p>$38.072.982</p>
+                    <small>KDV Hariç - Tüm zamanlar</small>
+                </div>
+                <div class="card-style-3">
+                    <h3>📦 Toplam Ürün</h3>
+                    <p>431.227</p>
+                    <small>Satılan ürün adedi</small>
+                </div>
+                <div class="card-style-3">
+                    <h3>👥 Müşteri</h3>
+                    <p>12.456</p>
+                    <small>Aktif müşteri sayısı</small>
+                </div>
+                <div class="card-style-3">
+                    <h3>🎸 Farklı Ürün</h3>
+                    <p>8.234</p>
+                    <small>Ürün çeşidi</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- TASARIM 4: 3D Lift -->
+        <div class="design-section">
+            <h2 class="design-title">Tasarım 4: 3D Lift (Yükselme Efekti)</h2>
+            <div class="cards-grid">
+                <div class="card-style-4">
+                    <h3>💰 Toplam Satış</h3>
+                    <p>$38.072.982</p>
+                    <small>KDV Hariç - Tüm zamanlar</small>
+                </div>
+                <div class="card-style-4">
+                    <h3>📦 Toplam Ürün</h3>
+                    <p>431.227</p>
+                    <small>Satılan ürün adedi</small>
+                </div>
+                <div class="card-style-4">
+                    <h3>👥 Müşteri</h3>
+                    <p>12.456</p>
+                    <small>Aktif müşteri sayısı</small>
+                </div>
+                <div class="card-style-4">
+                    <h3>🎸 Farklı Ürün</h3>
+                    <p>8.234</p>
+                    <small>Ürün çeşidi</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- TASARIM 5: Minimalist Premium -->
+        <div class="design-section">
+            <h2 class="design-title">Tasarım 5: Minimalist Premium (Temiz ve Şık)</h2>
+            <div class="cards-grid">
+                <div class="card-style-5">
+                    <h3>💰 Toplam Satış</h3>
+                    <p>$38.072.982</p>
+                    <small>KDV Hariç - Tüm zamanlar</small>
+                </div>
+                <div class="card-style-5">
+                    <h3>📦 Toplam Ürün</h3>
+                    <p>431.227</p>
+                    <small>Satılan ürün adedi</small>
+                </div>
+                <div class="card-style-5">
+                    <h3>👥 Müşteri</h3>
+                    <p>12.456</p>
+                    <small>Aktif müşteri sayısı</small>
+                </div>
+                <div class="card-style-5">
+                    <h3>🎸 Farklı Ürün</h3>
+                    <p>8.234</p>
+                    <small>Ürün çeşidi</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- TASARIM 6: Hexagon - Altıgen -->
+        <div class="design-section">
+            <h2 class="design-title">Tasarım 6: Hexagon (Altıgen Şekil)</h2>
+            <div class="cards-grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));">
+                <div class="card-style-6">
+                    <h3>💰 Toplam Satış</h3>
+                    <p>$38.072.982</p>
+                    <small>KDV Hariç</small>
+                </div>
+                <div class="card-style-6">
+                    <h3>📦 Toplam Ürün</h3>
+                    <p>431.227</p>
+                    <small>Satılan ürün</small>
+                </div>
+                <div class="card-style-6">
+                    <h3>👥 Müşteri</h3>
+                    <p>12.456</p>
+                    <small>Aktif müşteri</small>
+                </div>
+                <div class="card-style-6">
+                    <h3>🎸 Farklı Ürün</h3>
+                    <p>8.234</p>
+                    <small>Ürün çeşidi</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- TASARIM 7: Rounded Pill - Yuvarlak Kapsül -->
+        <div class="design-section">
+            <h2 class="design-title">Tasarım 7: Rounded Pill (Yuvarlak Kapsül)</h2>
+            <div class="cards-grid">
+                <div class="card-style-7">
+                    <h3>💰 Toplam Satış</h3>
+                    <p>$38.072.982</p>
+                    <small>KDV Hariç - Tüm zamanlar</small>
+                </div>
+                <div class="card-style-7">
+                    <h3>📦 Toplam Ürün</h3>
+                    <p>431.227</p>
+                    <small>Satılan ürün adedi</small>
+                </div>
+                <div class="card-style-7">
+                    <h3>👥 Müşteri</h3>
+                    <p>12.456</p>
+                    <small>Aktif müşteri sayısı</small>
+                </div>
+                <div class="card-style-7">
+                    <h3>🎸 Farklı Ürün</h3>
+                    <p>8.234</p>
+                    <small>Ürün çeşidi</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- TASARIM 8: Diamond - Elmas -->
+        <div class="design-section">
+            <h2 class="design-title">Tasarım 8: Diamond (Elmas Şekli)</h2>
+            <div class="cards-grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));">
+                <div class="card-style-8">
+                    <div class="content">
+                        <h3>💰 Toplam Satış</h3>
+                        <p>$38.072.982</p>
+                        <small>KDV Hariç</small>
+                    </div>
+                </div>
+                <div class="card-style-8">
+                    <div class="content">
+                        <h3>📦 Toplam Ürün</h3>
+                        <p>431.227</p>
+                        <small>Satılan ürün</small>
+                    </div>
+                </div>
+                <div class="card-style-8">
+                    <div class="content">
+                        <h3>👥 Müşteri</h3>
+                        <p>12.456</p>
+                        <small>Aktif müşteri</small>
+                    </div>
+                </div>
+                <div class="card-style-8">
+                    <div class="content">
+                        <h3>🎸 Farklı Ürün</h3>
+                        <p>8.234</p>
+                        <small>Ürün çeşidi</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TASARIM 9: Rounded Square - Yuvarlatılmış Kare -->
+        <div class="design-section">
+            <h2 class="design-title">Tasarım 9: Rounded Square (Yuvarlatılmış Kare - Glow Efekti)</h2>
+            <div class="cards-grid">
+                <div class="card-style-9">
+                    <h3>💰 Toplam Satış</h3>
+                    <p>$38.072.982</p>
+                    <small>KDV Hariç - Tüm zamanlar</small>
+                </div>
+                <div class="card-style-9">
+                    <h3>📦 Toplam Ürün</h3>
+                    <p>431.227</p>
+                    <small>Satılan ürün adedi</small>
+                </div>
+                <div class="card-style-9">
+                    <h3>👥 Müşteri</h3>
+                    <p>12.456</p>
+                    <small>Aktif müşteri sayısı</small>
+                </div>
+                <div class="card-style-9">
+                    <h3>🎸 Farklı Ürün</h3>
+                    <p>8.234</p>
+                    <small>Ürün çeşidi</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- TASARIM 10: Circle - Tamamen Yuvarlak -->
+        <div class="design-section">
+            <h2 class="design-title">Tasarım 10: Circle (Tamamen Yuvarlak)</h2>
+            <div class="cards-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); justify-items: center;">
+                <div class="card-style-10">
+                    <h3>💰 Toplam Satış</h3>
+                    <p>$38.072.982</p>
+                    <small>KDV Hariç</small>
+                </div>
+                <div class="card-style-10">
+                    <h3>📦 Toplam Ürün</h3>
+                    <p>431.227</p>
+                    <small>Satılan ürün</small>
+                </div>
+                <div class="card-style-10">
+                    <h3>👥 Müşteri</h3>
+                    <p>12.456</p>
+                    <small>Aktif müşteri</small>
+                </div>
+                <div class="card-style-10">
+                    <h3>🎸 Farklı Ürün</h3>
+                    <p>8.234</p>
+                    <small>Ürün çeşidi</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- TASARIM 11: Liquid Morph - Akışkan Şekil -->
+        <div class="design-section">
+            <h2 class="design-title">Tasarım 11: Liquid Morph (Akışkan Şekil - Sürekli Değişen)</h2>
+            <div class="cards-grid">
+                <div class="card-style-11">
+                    <h3>💰 Toplam Satış</h3>
+                    <p>$38.072.982</p>
+                    <small>KDV Hariç - Tüm zamanlar</small>
+                </div>
+                <div class="card-style-11">
+                    <h3>📦 Toplam Ürün</h3>
+                    <p>431.227</p>
+                    <small>Satılan ürün adedi</small>
+                </div>
+                <div class="card-style-11">
+                    <h3>👥 Müşteri</h3>
+                    <p>12.456</p>
+                    <small>Aktif müşteri sayısı</small>
+                </div>
+                <div class="card-style-11">
+                    <h3>🎸 Farklı Ürün</h3>
+                    <p>8.234</p>
+                    <small>Ürün çeşidi</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- TASARIM 12: Split Design - Bölünmüş Tasarım -->
+        <div class="design-section">
+            <h2 class="design-title">Tasarım 12: Split Design (Bölünmüş Tasarım - İki Renk)</h2>
+            <div class="cards-grid">
+                <div class="card-style-12">
+                    <div class="content-wrapper">
+                        <h3>💰 Toplam Satış</h3>
+                        <p>$38.072.982</p>
+                        <small>KDV Hariç - Tüm zamanlar</small>
+                    </div>
+                </div>
+                <div class="card-style-12">
+                    <div class="content-wrapper">
+                        <h3>📦 Toplam Ürün</h3>
+                        <p>431.227</p>
+                        <small>Satılan ürün adedi</small>
+                    </div>
+                </div>
+                <div class="card-style-12">
+                    <div class="content-wrapper">
+                        <h3>👥 Müşteri</h3>
+                        <p>12.456</p>
+                        <small>Aktif müşteri sayısı</small>
+                    </div>
+                </div>
+                <div class="card-style-12">
+                    <div class="content-wrapper">
+                        <h3>🎸 Farklı Ürün</h3>
+                        <p>8.234</p>
+                        <small>Ürün çeşidi</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TASARIM 13: Neon Glow - Neon Işık -->
+        <div class="design-section">
+            <h2 class="design-title">Tasarım 13: Neon Glow (Neon Işık Efekti - Nabız Atışı)</h2>
+            <div class="cards-grid">
+                <div class="card-style-13">
+                    <h3>💰 Toplam Satış</h3>
+                    <p>$38.072.982</p>
+                    <small>KDV Hariç - Tüm zamanlar</small>
+                </div>
+                <div class="card-style-13">
+                    <h3>📦 Toplam Ürün</h3>
+                    <p>431.227</p>
+                    <small>Satılan ürün adedi</small>
+                </div>
+                <div class="card-style-13">
+                    <h3>👥 Müşteri</h3>
+                    <p>12.456</p>
+                    <small>Aktif müşteri sayısı</small>
+                </div>
+                <div class="card-style-13">
+                    <h3>🎸 Farklı Ürün</h3>
+                    <p>8.234</p>
+                    <small>Ürün çeşidi</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- TASARIM 14: 3D Perspective - 3D Perspektif -->
+        <div class="design-section">
+            <h2 class="design-title">Tasarım 14: 3D Perspective (3D Perspektif - Derinlik Hissi)</h2>
+            <div class="cards-grid">
+                <div class="card-style-14">
+                    <h3>💰 Toplam Satış</h3>
+                    <p>$38.072.982</p>
+                    <small>KDV Hariç - Tüm zamanlar</small>
+                </div>
+                <div class="card-style-14">
+                    <h3>📦 Toplam Ürün</h3>
+                    <p>431.227</p>
+                    <small>Satılan ürün adedi</small>
+                </div>
+                <div class="card-style-14">
+                    <h3>👥 Müşteri</h3>
+                    <p>12.456</p>
+                    <small>Aktif müşteri sayısı</small>
+                </div>
+                <div class="card-style-14">
+                    <h3>🎸 Farklı Ürün</h3>
+                    <p>8.234</p>
+                    <small>Ürün çeşidi</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- TASARIM 15: Holographic - Hologram Efekti -->
+        <div class="design-section">
+            <h2 class="design-title">Tasarım 15: Holographic (Hologram Efekti - Gökkuşağı + Shine)</h2>
+            <div class="cards-grid">
+                <div class="card-style-15">
+                    <h3>💰 Toplam Satış</h3>
+                    <p>$38.072.982</p>
+                    <small>KDV Hariç - Tüm zamanlar</small>
+                </div>
+                <div class="card-style-15">
+                    <h3>📦 Toplam Ürün</h3>
+                    <p>431.227</p>
+                    <small>Satılan ürün adedi</small>
+                </div>
+                <div class="card-style-15">
+                    <h3>👥 Müşteri</h3>
+                    <p>12.456</p>
+                    <small>Aktif müşteri sayısı</small>
+                </div>
+                <div class="card-style-15">
+                    <h3>🎸 Farklı Ürün</h3>
+                    <p>8.234</p>
+                    <small>Ürün çeşidi</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- TOP 10 MAĞAZA TASARIMLARI -->
+        <h1 style="margin-top: 80px; margin-bottom: 50px; text-align: center; font-size: 2.5em; color: white; text-shadow: 0 2px 10px rgba(0,0,0,0.3);">🏆 Top 10 Mağaza Tasarım Örnekleri</h1>
+
+        <!-- TASARIM 1: Klasik Liste -->
+        <div class="design-section">
+            <h2 class="design-title">Tasarım 1: Klasik Liste (Numaralı Sıralama)</h2>
+            <div class="store-list-container" style="background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); height: 580px; color: #e2e8f0;">
+                <h3 style="margin-bottom: 20px; font-size: 1.2em;">🏆 Top 10 Mağaza (Tüm Zamanlar)</h3>
+                <div class="store-list-style-1">
+                    <div class="store-item-1">
+                        <span class="store-rank">1</span>
+                        <div class="store-info">
+                            <span class="store-name">Mağaza A</span>
+                            <span class="store-value">$2.450.000</span>
+                        </div>
+                    </div>
+                    <div class="store-item-1">
+                        <span class="store-rank">2</span>
+                        <div class="store-info">
+                            <span class="store-name">Mağaza B</span>
+                            <span class="store-value">$2.120.000</span>
+                        </div>
+                    </div>
+                    <div class="store-item-1">
+                        <span class="store-rank">3</span>
+                        <div class="store-info">
+                            <span class="store-name">Mağaza C</span>
+                            <span class="store-value">$1.980.000</span>
+                        </div>
+                    </div>
+                    <div class="store-item-1">
+                        <span class="store-rank">4</span>
+                        <div class="store-info">
+                            <span class="store-name">Mağaza D</span>
+                            <span class="store-value">$1.750.000</span>
+                        </div>
+                    </div>
+                    <div class="store-item-1">
+                        <span class="store-rank">5</span>
+                        <div class="store-info">
+                            <span class="store-name">Mağaza E</span>
+                            <span class="store-value">$1.620.000</span>
+                        </div>
+                    </div>
+                    <div class="store-item-1">
+                        <span class="store-rank">6</span>
+                        <div class="store-info">
+                            <span class="store-name">Mağaza F</span>
+                            <span class="store-value">$1.450.000</span>
+                        </div>
+                    </div>
+                    <div class="store-item-1">
+                        <span class="store-rank">7</span>
+                        <div class="store-info">
+                            <span class="store-name">Mağaza G</span>
+                            <span class="store-value">$1.320.000</span>
+                        </div>
+                    </div>
+                    <div class="store-item-1">
+                        <span class="store-rank">8</span>
+                        <div class="store-info">
+                            <span class="store-name">Mağaza H</span>
+                            <span class="store-value">$1.180.000</span>
+                        </div>
+                    </div>
+                    <div class="store-item-1">
+                        <span class="store-rank">9</span>
+                        <div class="store-info">
+                            <span class="store-name">Mağaza I</span>
+                            <span class="store-value">$1.050.000</span>
+                        </div>
+                    </div>
+                    <div class="store-item-1">
+                        <span class="store-rank">10</span>
+                        <div class="store-info">
+                            <span class="store-name">Mağaza J</span>
+                            <span class="store-value">$980.000</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TASARIM 2: Modern Kart Grid -->
+        <div class="design-section">
+            <h2 class="design-title">Tasarım 2: Modern Kart Grid (Kart Görünümü)</h2>
+            <div class="store-list-container" style="background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); height: 580px; color: #e2e8f0; overflow-y: auto;">
+                <h3 style="margin-bottom: 20px; font-size: 1.2em;">🏆 Top 10 Mağaza (Tüm Zamanlar)</h3>
+                <div class="store-list-style-2">
+                    <div class="store-item-2">
+                        <div class="store-rank-badge">1</div>
+                        <div class="store-details">
+                            <div class="store-name">Mağaza A</div>
+                            <div class="store-value">$2.450.000</div>
+                        </div>
+                    </div>
+                    <div class="store-item-2">
+                        <div class="store-rank-badge">2</div>
+                        <div class="store-details">
+                            <div class="store-name">Mağaza B</div>
+                            <div class="store-value">$2.120.000</div>
+                        </div>
+                    </div>
+                    <div class="store-item-2">
+                        <div class="store-rank-badge">3</div>
+                        <div class="store-details">
+                            <div class="store-name">Mağaza C</div>
+                            <div class="store-value">$1.980.000</div>
+                        </div>
+                    </div>
+                    <div class="store-item-2">
+                        <div class="store-rank-badge">4</div>
+                        <div class="store-details">
+                            <div class="store-name">Mağaza D</div>
+                            <div class="store-value">$1.750.000</div>
+                        </div>
+                    </div>
+                    <div class="store-item-2">
+                        <div class="store-rank-badge">5</div>
+                        <div class="store-details">
+                            <div class="store-name">Mağaza E</div>
+                            <div class="store-value">$1.620.000</div>
+                        </div>
+                    </div>
+                    <div class="store-item-2">
+                        <div class="store-rank-badge">6</div>
+                        <div class="store-details">
+                            <div class="store-name">Mağaza F</div>
+                            <div class="store-value">$1.450.000</div>
+                        </div>
+                    </div>
+                    <div class="store-item-2">
+                        <div class="store-rank-badge">7</div>
+                        <div class="store-details">
+                            <div class="store-name">Mağaza G</div>
+                            <div class="store-value">$1.320.000</div>
+                        </div>
+                    </div>
+                    <div class="store-item-2">
+                        <div class="store-rank-badge">8</div>
+                        <div class="store-details">
+                            <div class="store-name">Mağaza H</div>
+                            <div class="store-value">$1.180.000</div>
+                        </div>
+                    </div>
+                    <div class="store-item-2">
+                        <div class="store-rank-badge">9</div>
+                        <div class="store-details">
+                            <div class="store-name">Mağaza I</div>
+                            <div class="store-value">$1.050.000</div>
+                        </div>
+                    </div>
+                    <div class="store-item-2">
+                        <div class="store-rank-badge">10</div>
+                        <div class="store-details">
+                            <div class="store-name">Mağaza J</div>
+                            <div class="store-value">$980.000</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TASARIM 3: Progress Bar -->
+        <div class="design-section">
+            <h2 class="design-title">Tasarım 3: Progress Bar (İlerleme Çubuğu)</h2>
+            <div class="store-list-container" style="background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); height: 580px; color: #e2e8f0;">
+                <h3 style="margin-bottom: 20px; font-size: 1.2em;">🏆 Top 10 Mağaza (Tüm Zamanlar)</h3>
+                <div class="store-list-style-3">
+                    <div class="store-item-3">
+                        <div class="store-header-3">
+                            <span class="store-rank-3">1</span>
+                            <span class="store-name-3">Mağaza A</span>
+                            <span class="store-value-3">$2.450.000</span>
+                        </div>
+                        <div class="progress-bar-3" style="width: 100%;"></div>
+                    </div>
+                    <div class="store-item-3">
+                        <div class="store-header-3">
+                            <span class="store-rank-3">2</span>
+                            <span class="store-name-3">Mağaza B</span>
+                            <span class="store-value-3">$2.120.000</span>
+                        </div>
+                        <div class="progress-bar-3" style="width: 86.5%;"></div>
+                    </div>
+                    <div class="store-item-3">
+                        <div class="store-header-3">
+                            <span class="store-rank-3">3</span>
+                            <span class="store-name-3">Mağaza C</span>
+                            <span class="store-value-3">$1.980.000</span>
+                        </div>
+                        <div class="progress-bar-3" style="width: 80.8%;"></div>
+                    </div>
+                    <div class="store-item-3">
+                        <div class="store-header-3">
+                            <span class="store-rank-3">4</span>
+                            <span class="store-name-3">Mağaza D</span>
+                            <span class="store-value-3">$1.750.000</span>
+                        </div>
+                        <div class="progress-bar-3" style="width: 71.4%;"></div>
+                    </div>
+                    <div class="store-item-3">
+                        <div class="store-header-3">
+                            <span class="store-rank-3">5</span>
+                            <span class="store-name-3">Mağaza E</span>
+                            <span class="store-value-3">$1.620.000</span>
+                        </div>
+                        <div class="progress-bar-3" style="width: 66.1%;"></div>
+                    </div>
+                    <div class="store-item-3">
+                        <div class="store-header-3">
+                            <span class="store-rank-3">6</span>
+                            <span class="store-name-3">Mağaza F</span>
+                            <span class="store-value-3">$1.450.000</span>
+                        </div>
+                        <div class="progress-bar-3" style="width: 59.2%;"></div>
+                    </div>
+                    <div class="store-item-3">
+                        <div class="store-header-3">
+                            <span class="store-rank-3">7</span>
+                            <span class="store-name-3">Mağaza G</span>
+                            <span class="store-value-3">$1.320.000</span>
+                        </div>
+                        <div class="progress-bar-3" style="width: 53.9%;"></div>
+                    </div>
+                    <div class="store-item-3">
+                        <div class="store-header-3">
+                            <span class="store-rank-3">8</span>
+                            <span class="store-name-3">Mağaza H</span>
+                            <span class="store-value-3">$1.180.000</span>
+                        </div>
+                        <div class="progress-bar-3" style="width: 48.2%;"></div>
+                    </div>
+                    <div class="store-item-3">
+                        <div class="store-header-3">
+                            <span class="store-rank-3">9</span>
+                            <span class="store-name-3">Mağaza I</span>
+                            <span class="store-value-3">$1.050.000</span>
+                        </div>
+                        <div class="progress-bar-3" style="width: 42.9%;"></div>
+                    </div>
+                    <div class="store-item-3">
+                        <div class="store-header-3">
+                            <span class="store-rank-3">10</span>
+                            <span class="store-name-3">Mağaza J</span>
+                            <span class="store-value-3">$980.000</span>
+                        </div>
+                        <div class="progress-bar-3" style="width: 40%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TASARIM 4: Minimalist Liste -->
+        <div class="design-section">
+            <h2 class="design-title">Tasarım 4: Minimalist Liste (Temiz ve Sade)</h2>
+            <div class="store-list-container" style="background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); height: 580px; color: #e2e8f0;">
+                <h3 style="margin-bottom: 20px; font-size: 1.2em;">🏆 Top 10 Mağaza (Tüm Zamanlar)</h3>
+                <div class="store-list-style-4">
+                    <div class="store-item-4">
+                        <span class="store-rank-4">01</span>
+                        <span class="store-name-4">Mağaza A</span>
+                        <span class="store-value-4">$2.450.000</span>
+                    </div>
+                    <div class="store-item-4">
+                        <span class="store-rank-4">02</span>
+                        <span class="store-name-4">Mağaza B</span>
+                        <span class="store-value-4">$2.120.000</span>
+                    </div>
+                    <div class="store-item-4">
+                        <span class="store-rank-4">03</span>
+                        <span class="store-name-4">Mağaza C</span>
+                        <span class="store-value-4">$1.980.000</span>
+                    </div>
+                    <div class="store-item-4">
+                        <span class="store-rank-4">04</span>
+                        <span class="store-name-4">Mağaza D</span>
+                        <span class="store-value-4">$1.750.000</span>
+                    </div>
+                    <div class="store-item-4">
+                        <span class="store-rank-4">05</span>
+                        <span class="store-name-4">Mağaza E</span>
+                        <span class="store-value-4">$1.620.000</span>
+                    </div>
+                    <div class="store-item-4">
+                        <span class="store-rank-4">06</span>
+                        <span class="store-name-4">Mağaza F</span>
+                        <span class="store-value-4">$1.450.000</span>
+                    </div>
+                    <div class="store-item-4">
+                        <span class="store-rank-4">07</span>
+                        <span class="store-name-4">Mağaza G</span>
+                        <span class="store-value-4">$1.320.000</span>
+                    </div>
+                    <div class="store-item-4">
+                        <span class="store-rank-4">08</span>
+                        <span class="store-name-4">Mağaza H</span>
+                        <span class="store-value-4">$1.180.000</span>
+                    </div>
+                    <div class="store-item-4">
+                        <span class="store-rank-4">09</span>
+                        <span class="store-name-4">Mağaza I</span>
+                        <span class="store-value-4">$1.050.000</span>
+                    </div>
+                    <div class="store-item-4">
+                        <span class="store-rank-4">10</span>
+                        <span class="store-name-4">Mağaza J</span>
+                        <span class="store-value-4">$980.000</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TASARIM 5: Premium Card List -->
+        <div class="design-section">
+            <h2 class="design-title">Tasarım 5: Premium Card List (Kart Listesi)</h2>
+            <div class="store-list-container" style="background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); height: 580px; color: #e2e8f0; overflow-y: auto;">
+                <h3 style="margin-bottom: 20px; font-size: 1.2em;">🏆 Top 10 Mağaza (Tüm Zamanlar)</h3>
+                <div class="store-list-style-5">
+                    <div class="store-item-5">
+                        <div class="store-rank-circle">1</div>
+                        <div class="store-content-5">
+                            <div class="store-name-5">Mağaza A</div>
+                            <div class="store-value-5">$2.450.000</div>
+                        </div>
+                    </div>
+                    <div class="store-item-5">
+                        <div class="store-rank-circle">2</div>
+                        <div class="store-content-5">
+                            <div class="store-name-5">Mağaza B</div>
+                            <div class="store-value-5">$2.120.000</div>
+                        </div>
+                    </div>
+                    <div class="store-item-5">
+                        <div class="store-rank-circle">3</div>
+                        <div class="store-content-5">
+                            <div class="store-name-5">Mağaza C</div>
+                            <div class="store-value-5">$1.980.000</div>
+                        </div>
+                    </div>
+                    <div class="store-item-5">
+                        <div class="store-rank-circle">4</div>
+                        <div class="store-content-5">
+                            <div class="store-name-5">Mağaza D</div>
+                            <div class="store-value-5">$1.750.000</div>
+                        </div>
+                    </div>
+                    <div class="store-item-5">
+                        <div class="store-rank-circle">5</div>
+                        <div class="store-content-5">
+                            <div class="store-name-5">Mağaza E</div>
+                            <div class="store-value-5">$1.620.000</div>
+                        </div>
+                    </div>
+                    <div class="store-item-5">
+                        <div class="store-rank-circle">6</div>
+                        <div class="store-content-5">
+                            <div class="store-name-5">Mağaza F</div>
+                            <div class="store-value-5">$1.450.000</div>
+                        </div>
+                    </div>
+                    <div class="store-item-5">
+                        <div class="store-rank-circle">7</div>
+                        <div class="store-content-5">
+                            <div class="store-name-5">Mağaza G</div>
+                            <div class="store-value-5">$1.320.000</div>
+                        </div>
+                    </div>
+                    <div class="store-item-5">
+                        <div class="store-rank-circle">8</div>
+                        <div class="store-content-5">
+                            <div class="store-name-5">Mağaza H</div>
+                            <div class="store-value-5">$1.180.000</div>
+                        </div>
+                    </div>
+                    <div class="store-item-5">
+                        <div class="store-rank-circle">9</div>
+                        <div class="store-content-5">
+                            <div class="store-name-5">Mağaza I</div>
+                            <div class="store-value-5">$1.050.000</div>
+                        </div>
+                    </div>
+                    <div class="store-item-5">
+                        <div class="store-rank-circle">10</div>
+                        <div class="store-content-5">
+                            <div class="store-name-5">Mağaza J</div>
+                            <div class="store-value-5">$980.000</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* TASARIM 1: Klasik Liste */
+        .store-list-style-1 {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .store-item-1 {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border-left: 3px solid #10B981;
+            transition: all 0.3s ease;
+        }
+
+        .store-item-1:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(5px);
+        }
+
+        .store-rank {
+            font-size: 1.2em;
+            font-weight: 700;
+            color: #10B981;
+            min-width: 30px;
+            text-align: center;
+        }
+
+        .store-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex: 1;
+            gap: 15px;
+        }
+
+        .store-name {
+            font-size: 0.95em;
+            font-weight: 500;
+        }
+
+        .store-value {
+            font-size: 1em;
+            font-weight: 700;
+            color: #10B981;
+        }
+
+        /* TASARIM 2: Modern Kart Grid */
+        .store-list-style-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+        }
+
+        .store-item-2 {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .store-item-2:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+        }
+
+        .store-rank-badge {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #10B981, #3B82F6);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1em;
+            flex-shrink: 0;
+        }
+
+        .store-details {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .store-details .store-name {
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+
+        .store-details .store-value {
+            font-size: 1em;
+            font-weight: 700;
+            color: #10B981;
+        }
+
+        /* TASARIM 3: Progress Bar */
+        .store-list-style-3 {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .store-item-3 {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .store-header-3 {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .store-rank-3 {
+            font-size: 1em;
+            font-weight: 700;
+            color: #10B981;
+            min-width: 25px;
+        }
+
+        .store-name-3 {
+            flex: 1;
+            font-size: 0.95em;
+            font-weight: 500;
+        }
+
+        .store-value-3 {
+            font-size: 1em;
+            font-weight: 700;
+            color: #10B981;
+        }
+
+        .progress-bar-3 {
+            height: 8px;
+            background: linear-gradient(90deg, #10B981, #3B82F6);
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+            transition: width 0.5s ease;
+        }
+
+        /* TASARIM 4: Minimalist Liste */
+        .store-list-style-4 {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .store-item-4 {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            padding: 12px 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.2s ease;
+        }
+
+        .store-item-4:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-left: 3px solid #10B981;
+            padding-left: 12px;
+        }
+
+        .store-rank-4 {
+            font-size: 0.85em;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.5);
+            min-width: 35px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .store-name-4 {
+            flex: 1;
+            font-size: 0.95em;
+            font-weight: 500;
+        }
+
+        .store-value-4 {
+            font-size: 1em;
+            font-weight: 700;
+            color: #10B981;
+        }
+
+        /* TASARIM 5: Premium Card List */
+        .store-list-style-5 {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .store-item-5 {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .store-item-5::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: linear-gradient(180deg, #10B981, #3B82F6);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .store-item-5:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(5px);
+        }
+
+        .store-item-5:hover::before {
+            opacity: 1;
+        }
+
+        .store-rank-circle {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #10B981, #3B82F6);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.1em;
+            flex-shrink: 0;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .store-content-5 {
+            flex: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .store-name-5 {
+            font-size: 0.95em;
+            font-weight: 500;
+        }
+
+        .store-value-5 {
+            font-size: 1.1em;
+            font-weight: 700;
+            color: #10B981;
+        }
+    </style>
+</body>
+</html>
+

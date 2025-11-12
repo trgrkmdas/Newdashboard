@@ -1,0 +1,491 @@
+/* ============================================
+   MAIN.CSS - Ana Stiller
+   Reset, Body, Container, Header, Content
+   ============================================ */
+
+/* Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Body */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+    min-height: 100vh;
+    padding: 20px 40px;
+    color: #e2e8f0;
+}
+
+/* Container - Wider for better spacing */
+.container {
+    max-width: 1800px;
+    margin: 0 auto;
+    background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Header - Modern Compact Design */
+.header {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+    color: white;
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    position: relative;
+    min-height: 72px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.header-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.header-icon {
+    font-size: 1.8em;
+    line-height: 1;
+    opacity: 0.95;
+}
+
+.header-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.header h1 {
+    font-size: 1.3em;
+    margin: 0;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+}
+
+.header p {
+    font-size: 0.8em;
+    margin: 0;
+    opacity: 0.85;
+    font-weight: 400;
+    line-height: 1.2;
+}
+
+/* User Info - Hybrid Premium Design */
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(255, 255, 255, 0.12);
+    padding: 8px 12px 8px 8px;
+    border-radius: 28px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.user-info:hover {
+    background: rgba(255, 255, 255, 0.18);
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-1px);
+}
+
+/* User Avatar - Premium Circle */
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.user-avatar::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.user-info:hover .user-avatar::before {
+    opacity: 1;
+}
+
+.user-info:hover .user-avatar {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.user-initial {
+    font-size: 1.1em;
+    font-weight: 700;
+    color: white;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    z-index: 1;
+    line-height: 1;
+}
+
+/* User Details - Email Badge */
+.user-details {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.user-email-badge {
+    font-size: 0.8em;
+    font-weight: 500;
+    color: white;
+    opacity: 0.95;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px;
+    padding: 4px 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    transition: all 0.2s ease;
+    position: relative;
+    cursor: default;
+}
+
+.user-email-badge:hover {
+    background: rgba(255, 255, 255, 0.15);
+    opacity: 1;
+}
+
+/* Tooltip for full email */
+.user-email-badge[data-full-email]:not([data-full-email=""])::after {
+    content: attr(data-full-email);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-8px);
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.75em;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.user-email-badge[data-full-email]:not([data-full-email=""]):hover::after {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-12px);
+}
+
+.user-email-badge[data-full-email]:not([data-full-email=""])::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-4px);
+    border: 6px solid transparent;
+    border-top-color: rgba(0, 0, 0, 0.9);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 1001;
+}
+
+.user-email-badge[data-full-email]:not([data-full-email=""]):hover::before {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-8px);
+}
+
+/* User Divider */
+.user-divider {
+    width: 1px;
+    height: 24px;
+    background: rgba(255, 255, 255, 0.2);
+    flex-shrink: 0;
+}
+
+/* Login Button - Icon */
+.user-info .btn-icon {
+    background: rgba(255, 255, 255, 0.15);
+    border: none;
+    color: white;
+    padding: 8px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 1.1em;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+}
+
+.user-info .btn-icon:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: scale(1.1) rotate(5deg);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.user-info .btn-icon:active {
+    transform: scale(1.05) rotate(0deg);
+}
+
+/* Logout Button - Premium Style */
+.user-info .btn-logout {
+    background: rgba(255, 255, 255, 0.15);
+    border: none;
+    color: white;
+    padding: 8px 14px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 0.85em;
+    font-weight: 500;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.user-info .btn-logout:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.user-info .btn-logout:active {
+    transform: translateY(0);
+}
+
+.btn-icon-text {
+    font-size: 1em;
+    line-height: 1;
+}
+
+.btn-logout .btn-text {
+    font-weight: 500;
+}
+
+/* Legacy support */
+.user-email {
+    display: none;
+}
+
+/* Header Stats Section - Compact Design */
+.header-stats {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.stat-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.12);
+    padding: 6px 12px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    transition: all 0.2s ease;
+    min-width: 0;
+    flex-shrink: 1;
+}
+
+/* Stat badge with year toggle - column layout */
+.stat-badge:has(.year-toggle-container),
+.stat-badge.year-toggle-wrapper {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 16px;
+    min-width: auto;
+}
+
+.stat-badge:hover {
+    background: rgba(255, 255, 255, 0.18);
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+.stat-icon {
+    font-size: 1em;
+    opacity: 0.9;
+    flex-shrink: 0;
+}
+
+.stat-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.stat-label {
+    font-size: 0.7em;
+    opacity: 0.8;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.stat-value {
+    font-size: 0.85em;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.stat-badge .year-toggle-container,
+.year-toggle-wrapper .year-toggle-container {
+    margin: 0;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    width: auto;
+    align-items: center;
+}
+
+/* Info Box - Hidden (moved to header) */
+.info-box {
+    display: none;
+}
+
+/* Content */
+.content {
+    padding: 30px;
+    background: transparent;
+    color: #e2e8f0;
+}
+
+/* Loading & Error */
+.loading {
+    text-align: center;
+    padding: 50px;
+    font-size: 1.2em;
+    color: #94a3b8;
+}
+
+.error {
+    text-align: center;
+    padding: 50px;
+    color: #ef4444;
+    font-size: 1.2em;
+}
+
+/* Status Badges */
+.status-badge {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 0.85em;
+    font-weight: 600;
+    position: relative;
+    overflow: hidden;
+}
+
+.status-success {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-warning {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.status-error {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* Loading Badge Animation */
+.status-badge.loading {
+    background: #ffc107;
+    color: #000;
+}
+
+.status-badge.loading::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.4),
+        transparent
+    );
+    animation: loading-progress 2s infinite;
+}
+
+@keyframes loading-progress {
+    0% {
+        left: -100%;
+    }
+    100% {
+        left: 100%;
+    }
+}
+
+/* Animations */
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+

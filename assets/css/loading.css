@@ -1,0 +1,105 @@
+/* ============================================
+   LOADING.CSS - Loading Screen Stilleri
+   ============================================ */
+
+/* Loading Screen */
+#loadingScreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+}
+
+#loadingScreen > div {
+    text-align: center;
+}
+
+#loadingIcon {
+    font-size: 4em;
+    margin-bottom: 20px;
+    animation: pulse 2s infinite;
+}
+
+#loadingScreen h1 {
+    margin: 0 0 10px 0;
+    font-size: 2.5em;
+    animation: fadeInUp 1s ease;
+}
+
+#loadingScreen p {
+    margin: 0 0 30px 0;
+    font-size: 1.2em;
+    opacity: 0.9;
+    animation: fadeInUp 1s ease 0.2s both;
+}
+
+/* Progress Bar Container */
+#loadingScreen > div > div[style*="width: 400px"] {
+    width: 400px;
+    height: 8px;
+    background: rgba(255,255,255,0.3);
+    border-radius: 4px;
+    margin: 0 auto 15px;
+    overflow: hidden;
+    animation: fadeInUp 1s ease 0.4s both;
+}
+
+#progressBar {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg, #4ade80 0%, #22c55e 100%);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+    position: relative;
+}
+
+#progressBar > div {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%);
+    animation: shimmer 2s infinite;
+}
+
+#progressText {
+    font-size: 1.1em;
+    font-weight: 600;
+    margin-bottom: 20px;
+    animation: fadeInUp 1s ease 0.6s both;
+}
+
+#loadingSteps {
+    font-size: 0.9em;
+    opacity: 0.8;
+    animation: fadeInUp 1s ease 0.8s both;
+}
+
+#loadingSteps > div {
+    margin-bottom: 8px;
+    transition: all 0.3s ease;
+}
+
+#loadingSteps > div[style*="display: none"] {
+    display: none;
+}
+
+#loadingScreen .loading-step {
+    opacity: 0.5;
+    transition: opacity 0.3s ease;
+}
+
+#loadingScreen .loading-step.active {
+    opacity: 1;
+    color: #4ade80;
+}
+

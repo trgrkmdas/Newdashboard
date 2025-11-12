@@ -1,0 +1,115 @@
+{
+  "version": 2,
+  "buildCommand": null,
+  "outputDirectory": ".",
+  "installCommand": null,
+  "framework": null,
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://cdn.sheetjs.com https://www.gstatic.com https://www.googletagmanager.com https://www.google.com https://vercel.live https://www.chatbase.co; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' http://localhost:* http://127.0.0.1:* ws: wss: https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://auth-server.vercel.app https://*.vercel.app https://www.google-analytics.com https://www.googletagmanager.com https://cdn.jsdelivr.net https://www.gstatic.com https://api.openai.com https://www.chatbase.co https://*.chatbase.co https://api.mixedbread.ai https://*.mixedbread.ai; frame-src 'self' https://*.google.com https://www.google.com https://vercel.live https://www.chatbase.co https://*.chatbase.co; object-src 'none'; base-uri 'self'; form-action 'self';"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "geolocation=(), microphone=(), camera=()"
+        }
+      ]
+    },
+    {
+      "source": "/index.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/data-2023.json.gz",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400"
+        },
+        {
+          "key": "Content-Type",
+          "value": "application/gzip"
+        }
+      ]
+    },
+    {
+      "source": "/data-2024.json.gz",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400"
+        },
+        {
+          "key": "Content-Type",
+          "value": "application/gzip"
+        }
+      ]
+    },
+    {
+      "source": "/data-2025.json.gz",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400"
+        },
+        {
+          "key": "Content-Type",
+          "value": "application/gzip"
+        }
+      ]
+    },
+    {
+      "source": "/inventory.json.gz",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400"
+        },
+        {
+          "key": "Content-Type",
+          "value": "application/gzip"
+        }
+      ]
+    },
+    {
+      "source": "/data-metadata.json",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
+        }
+      ]
+    }
+  ]
+}
+

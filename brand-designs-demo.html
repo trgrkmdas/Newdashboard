@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Top 10 Marka Tasarım Örnekleri</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+            color: #e2e8f0;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 50px;
+            font-size: 2.5em;
+            color: white;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .design-section {
+            margin-bottom: 80px;
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .design-title {
+            font-size: 1.5em;
+            margin-bottom: 25px;
+            color: #10B981;
+            padding-bottom: 10px;
+            border-bottom: 2px solid rgba(16, 185, 129, 0.3);
+        }
+
+        /* Tasarım 1: Modern Gradient Cards */
+        .brand-grid-gradient {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .brand-card-gradient {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(59, 130, 246, 0.2) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .brand-card-gradient::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #10B981, #3B82F6);
+        }
+
+        .brand-card-gradient:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3);
+        }
+
+        .brand-rank-gradient {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(16, 185, 129, 0.3);
+            color: #10B981;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.9em;
+        }
+
+        .brand-name-gradient {
+            font-size: 1.1em;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: white;
+        }
+
+        .brand-value-gradient {
+            font-size: 1.4em;
+            font-weight: 700;
+            color: #10B981;
+            margin-bottom: 5px;
+        }
+
+        .brand-percentage-gradient {
+            font-size: 0.85em;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* Tasarım 2: Glassmorphism Badge Style */
+        .brand-list-glass {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .brand-item-glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .brand-item-glass::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: linear-gradient(180deg, #10B981, #3B82F6);
+        }
+
+        .brand-item-glass:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateX(5px);
+        }
+
+        .brand-left-glass {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex: 1;
+        }
+
+        .brand-rank-glass {
+            background: linear-gradient(135deg, #10B981, #3B82F6);
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1em;
+            box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
+        }
+
+        .brand-name-glass {
+            font-size: 1.05em;
+            font-weight: 500;
+            color: white;
+        }
+
+        .brand-right-glass {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 5px;
+        }
+
+        .brand-value-glass {
+            font-size: 1.2em;
+            font-weight: 700;
+            color: #10B981;
+        }
+
+        .brand-percentage-glass {
+            font-size: 0.8em;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* Tasarım 3: 3D Hover Cards */
+        .brand-grid-3d {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 20px;
+            perspective: 1000px;
+        }
+
+        .brand-card-3d {
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 15px;
+            padding: 25px;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.4s ease;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .brand-card-3d:hover {
+            transform: rotateY(5deg) rotateX(5deg) translateY(-10px);
+            box-shadow: 0 20px 40px rgba(16, 185, 129, 0.4);
+        }
+
+        .brand-card-3d::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, #10B981, #3B82F6, #8B5CF6, #EC4899);
+            border-radius: 15px;
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+
+        .brand-card-3d:hover::after {
+            opacity: 0.5;
+        }
+
+        .brand-rank-3d {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: linear-gradient(135deg, #10B981, #3B82F6);
+            color: white;
+            width: 45px;
+            height: 45px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.1em;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+        }
+
+        .brand-name-3d {
+            font-size: 1.15em;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: white;
+            margin-top: 10px;
+        }
+
+        .brand-value-3d {
+            font-size: 1.6em;
+            font-weight: 700;
+            color: #10B981;
+            margin-bottom: 8px;
+            text-shadow: 0 2px 10px rgba(16, 185, 129, 0.3);
+        }
+
+        .brand-percentage-3d {
+            font-size: 0.9em;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* Tasarım 4: Minimalist Modern List */
+        .brand-list-minimal {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .brand-item-minimal {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 18px 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border-left: 3px solid transparent;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .brand-item-minimal:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-left-color: #10B981;
+            transform: translateX(5px);
+        }
+
+        .brand-rank-minimal {
+            font-size: 1.2em;
+            font-weight: 700;
+            color: #10B981;
+            min-width: 30px;
+            text-align: center;
+        }
+
+        .brand-name-minimal {
+            flex: 1;
+            font-size: 1.05em;
+            font-weight: 500;
+            color: white;
+        }
+
+        .brand-value-minimal {
+            font-size: 1.15em;
+            font-weight: 700;
+            color: #10B981;
+            margin-right: 15px;
+        }
+
+        .brand-bar-minimal {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #10B981, #3B82F6);
+            border-radius: 0 0 8px 8px;
+            transition: width 0.5s ease;
+        }
+
+        /* Tasarım 5: Premium Badge with Progress */
+        .brand-list-premium {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .brand-item-premium {
+            background: rgba(30, 41, 59, 0.6);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .brand-item-premium::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 100%;
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .brand-item-premium:hover::before {
+            opacity: 1;
+        }
+
+        .brand-item-premium:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.2);
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        .brand-header-premium {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .brand-left-premium {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .brand-rank-premium {
+            background: linear-gradient(135deg, #10B981, #34D399);
+            color: white;
+            width: 45px;
+            height: 45px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.1em;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        }
+
+        .brand-name-premium {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: white;
+        }
+
+        .brand-value-premium {
+            font-size: 1.3em;
+            font-weight: 700;
+            color: #10B981;
+        }
+
+        .brand-progress-premium {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .brand-progress-bar-premium {
+            height: 100%;
+            background: linear-gradient(90deg, #10B981, #3B82F6);
+            border-radius: 3px;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+            transition: width 0.5s ease;
+        }
+
+        .brand-percentage-premium {
+            font-size: 0.85em;
+            color: rgba(255, 255, 255, 0.6);
+            margin-top: 8px;
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏷️ Top 10 Marka Tasarım Örnekleri</h1>
+
+        <!-- Tasarım 1: Modern Gradient Cards -->
+        <div class="design-section">
+            <h2 class="design-title">Tasarım 1: Modern Gradient Cards</h2>
+            <div class="brand-grid-gradient">
+                <div class="brand-card-gradient">
+                    <div class="brand-rank-gradient">1</div>
+                    <div class="brand-name-gradient">Yamaha</div>
+                    <div class="brand-value-gradient">$12.5M</div>
+                    <div class="brand-percentage-gradient">32.5%</div>
+                </div>
+                <div class="brand-card-gradient">
+                    <div class="brand-rank-gradient">2</div>
+                    <div class="brand-name-gradient">Roland</div>
+                    <div class="brand-value-gradient">$8.2M</div>
+                    <div class="brand-percentage-gradient">21.3%</div>
+                </div>
+                <div class="brand-card-gradient">
+                    <div class="brand-rank-gradient">3</div>
+                    <div class="brand-name-gradient">Kawai</div>
+                    <div class="brand-value-gradient">$6.8M</div>
+                    <div class="brand-percentage-gradient">17.7%</div>
+                </div>
+                <div class="brand-card-gradient">
+                    <div class="brand-rank-gradient">4</div>
+                    <div class="brand-name-gradient">Casio</div>
+                    <div class="brand-value-gradient">$4.5M</div>
+                    <div class="brand-percentage-gradient">11.7%</div>
+                </div>
+                <div class="brand-card-gradient">
+                    <div class="brand-rank-gradient">5</div>
+                    <div class="brand-name-gradient">Korg</div>
+                    <div class="brand-value-gradient">$3.2M</div>
+                    <div class="brand-percentage-gradient">8.3%</div>
+                </div>
+                <div class="brand-card-gradient">
+                    <div class="brand-rank-gradient">6</div>
+                    <div class="brand-name-gradient">Nord</div>
+                    <div class="brand-value-gradient">$2.1M</div>
+                    <div class="brand-percentage-gradient">5.5%</div>
+                </div>
+                <div class="brand-card-gradient">
+                    <div class="brand-rank-gradient">7</div>
+                    <div class="brand-name-gradient">Steinway</div>
+                    <div class="brand-value-gradient">$1.8M</div>
+                    <div class="brand-percentage-gradient">4.7%</div>
+                </div>
+                <div class="brand-card-gradient">
+                    <div class="brand-rank-gradient">8</div>
+                    <div class="brand-name-gradient">Bösendorfer</div>
+                    <div class="brand-value-gradient">$1.2M</div>
+                    <div class="brand-percentage-gradient">3.1%</div>
+                </div>
+                <div class="brand-card-gradient">
+                    <div class="brand-rank-gradient">9</div>
+                    <div class="brand-name-gradient">Fazioli</div>
+                    <div class="brand-value-gradient">$950K</div>
+                    <div class="brand-percentage-gradient">2.5%</div>
+                </div>
+                <div class="brand-card-gradient">
+                    <div class="brand-rank-gradient">10</div>
+                    <div class="brand-name-gradient">Baldwin</div>
+                    <div class="brand-value-gradient">$680K</div>
+                    <div class="brand-percentage-gradient">1.8%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tasarım 2: Glassmorphism Badge Style -->
+        <div class="design-section">
+            <h2 class="design-title">Tasarım 2: Glassmorphism Badge Style</h2>
+            <div class="brand-list-glass">
+                <div class="brand-item-glass">
+                    <div class="brand-left-glass">
+                        <div class="brand-rank-glass">1</div>
+                        <div class="brand-name-glass">Yamaha</div>
+                    </div>
+                    <div class="brand-right-glass">
+                        <div class="brand-value-glass">$12.5M</div>
+                        <div class="brand-percentage-glass">32.5%</div>
+                    </div>
+                </div>
+                <div class="brand-item-glass">
+                    <div class="brand-left-glass">
+                        <div class="brand-rank-glass">2</div>
+                        <div class="brand-name-glass">Roland</div>
+                    </div>
+                    <div class="brand-right-glass">
+                        <div class="brand-value-glass">$8.2M</div>
+                        <div class="brand-percentage-glass">21.3%</div>
+                    </div>
+                </div>
+                <div class="brand-item-glass">
+                    <div class="brand-left-glass">
+                        <div class="brand-rank-glass">3</div>
+                        <div class="brand-name-glass">Kawai</div>
+                    </div>
+                    <div class="brand-right-glass">
+                        <div class="brand-value-glass">$6.8M</div>
+                        <div class="brand-percentage-glass">17.7%</div>
+                    </div>
+                </div>
+                <div class="brand-item-glass">
+                    <div class="brand-left-glass">
+                        <div class="brand-rank-glass">4</div>
+                        <div class="brand-name-glass">Casio</div>
+                    </div>
+                    <div class="brand-right-glass">
+                        <div class="brand-value-glass">$4.5M</div>
+                        <div class="brand-percentage-glass">11.7%</div>
+                    </div>
+                </div>
+                <div class="brand-item-glass">
+                    <div class="brand-left-glass">
+                        <div class="brand-rank-glass">5</div>
+                        <div class="brand-name-glass">Korg</div>
+                    </div>
+                    <div class="brand-right-glass">
+                        <div class="brand-value-glass">$3.2M</div>
+                        <div class="brand-percentage-glass">8.3%</div>
+                    </div>
+                </div>
+                <div class="brand-item-glass">
+                    <div class="brand-left-glass">
+                        <div class="brand-rank-glass">6</div>
+                        <div class="brand-name-glass">Nord</div>
+                    </div>
+                    <div class="brand-right-glass">
+                        <div class="brand-value-glass">$2.1M</div>
+                        <div class="brand-percentage-glass">5.5%</div>
+                    </div>
+                </div>
+                <div class="brand-item-glass">
+                    <div class="brand-left-glass">
+                        <div class="brand-rank-glass">7</div>
+                        <div class="brand-name-glass">Steinway</div>
+                    </div>
+                    <div class="brand-right-glass">
+                        <div class="brand-value-glass">$1.8M</div>
+                        <div class="brand-percentage-glass">4.7%</div>
+                    </div>
+                </div>
+                <div class="brand-item-glass">
+                    <div class="brand-left-glass">
+                        <div class="brand-rank-glass">8</div>
+                        <div class="brand-name-glass">Bösendorfer</div>
+                    </div>
+                    <div class="brand-right-glass">
+                        <div class="brand-value-glass">$1.2M</div>
+                        <div class="brand-percentage-glass">3.1%</div>
+                    </div>
+                </div>
+                <div class="brand-item-glass">
+                    <div class="brand-left-glass">
+                        <div class="brand-rank-glass">9</div>
+                        <div class="brand-name-glass">Fazioli</div>
+                    </div>
+                    <div class="brand-right-glass">
+                        <div class="brand-value-glass">$950K</div>
+                        <div class="brand-percentage-glass">2.5%</div>
+                    </div>
+                </div>
+                <div class="brand-item-glass">
+                    <div class="brand-left-glass">
+                        <div class="brand-rank-glass">10</div>
+                        <div class="brand-name-glass">Baldwin</div>
+                    </div>
+                    <div class="brand-right-glass">
+                        <div class="brand-value-glass">$680K</div>
+                        <div class="brand-percentage-glass">1.8%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tasarım 3: 3D Hover Cards -->
+        <div class="design-section">
+            <h2 class="design-title">Tasarım 3: 3D Hover Cards</h2>
+            <div class="brand-grid-3d">
+                <div class="brand-card-3d">
+                    <div class="brand-rank-3d">1</div>
+                    <div class="brand-name-3d">Yamaha</div>
+                    <div class="brand-value-3d">$12.5M</div>
+                    <div class="brand-percentage-3d">32.5%</div>
+                </div>
+                <div class="brand-card-3d">
+                    <div class="brand-rank-3d">2</div>
+                    <div class="brand-name-3d">Roland</div>
+                    <div class="brand-value-3d">$8.2M</div>
+                    <div class="brand-percentage-3d">21.3%</div>
+                </div>
+                <div class="brand-card-3d">
+                    <div class="brand-rank-3d">3</div>
+                    <div class="brand-name-3d">Kawai</div>
+                    <div class="brand-value-3d">$6.8M</div>
+                    <div class="brand-percentage-3d">17.7%</div>
+                </div>
+                <div class="brand-card-3d">
+                    <div class="brand-rank-3d">4</div>
+                    <div class="brand-name-3d">Casio</div>
+                    <div class="brand-value-3d">$4.5M</div>
+                    <div class="brand-percentage-3d">11.7%</div>
+                </div>
+                <div class="brand-card-3d">
+                    <div class="brand-rank-3d">5</div>
+                    <div class="brand-name-3d">Korg</div>
+                    <div class="brand-value-3d">$3.2M</div>
+                    <div class="brand-percentage-3d">8.3%</div>
+                </div>
+                <div class="brand-card-3d">
+                    <div class="brand-rank-3d">6</div>
+                    <div class="brand-name-3d">Nord</div>
+                    <div class="brand-value-3d">$2.1M</div>
+                    <div class="brand-percentage-3d">5.5%</div>
+                </div>
+                <div class="brand-card-3d">
+                    <div class="brand-rank-3d">7</div>
+                    <div class="brand-name-3d">Steinway</div>
+                    <div class="brand-value-3d">$1.8M</div>
+                    <div class="brand-percentage-3d">4.7%</div>
+                </div>
+                <div class="brand-card-3d">
+                    <div class="brand-rank-3d">8</div>
+                    <div class="brand-name-3d">Bösendorfer</div>
+                    <div class="brand-value-3d">$1.2M</div>
+                    <div class="brand-percentage-3d">3.1%</div>
+                </div>
+                <div class="brand-card-3d">
+                    <div class="brand-rank-3d">9</div>
+                    <div class="brand-name-3d">Fazioli</div>
+                    <div class="brand-value-3d">$950K</div>
+                    <div class="brand-percentage-3d">2.5%</div>
+                </div>
+                <div class="brand-card-3d">
+                    <div class="brand-rank-3d">10</div>
+                    <div class="brand-name-3d">Baldwin</div>
+                    <div class="brand-value-3d">$680K</div>
+                    <div class="brand-percentage-3d">1.8%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tasarım 4: Minimalist Modern List -->
+        <div class="design-section">
+            <h2 class="design-title">Tasarım 4: Minimalist Modern List</h2>
+            <div class="brand-list-minimal">
+                <div class="brand-item-minimal" style="--width: 100%;">
+                    <div class="brand-rank-minimal">1</div>
+                    <div class="brand-name-minimal">Yamaha</div>
+                    <div class="brand-value-minimal">$12.5M</div>
+                    <div class="brand-bar-minimal" style="width: 100%;"></div>
+                </div>
+                <div class="brand-item-minimal" style="--width: 65.6%;">
+                    <div class="brand-rank-minimal">2</div>
+                    <div class="brand-name-minimal">Roland</div>
+                    <div class="brand-value-minimal">$8.2M</div>
+                    <div class="brand-bar-minimal" style="width: 65.6%;"></div>
+                </div>
+                <div class="brand-item-minimal" style="--width: 54.4%;">
+                    <div class="brand-rank-minimal">3</div>
+                    <div class="brand-name-minimal">Kawai</div>
+                    <div class="brand-value-minimal">$6.8M</div>
+                    <div class="brand-bar-minimal" style="width: 54.4%;"></div>
+                </div>
+                <div class="brand-item-minimal" style="--width: 36%;">
+                    <div class="brand-rank-minimal">4</div>
+                    <div class="brand-name-minimal">Casio</div>
+                    <div class="brand-value-minimal">$4.5M</div>
+                    <div class="brand-bar-minimal" style="width: 36%;"></div>
+                </div>
+                <div class="brand-item-minimal" style="--width: 25.6%;">
+                    <div class="brand-rank-minimal">5</div>
+                    <div class="brand-name-minimal">Korg</div>
+                    <div class="brand-value-minimal">$3.2M</div>
+                    <div class="brand-bar-minimal" style="width: 25.6%;"></div>
+                </div>
+                <div class="brand-item-minimal" style="--width: 16.8%;">
+                    <div class="brand-rank-minimal">6</div>
+                    <div class="brand-name-minimal">Nord</div>
+                    <div class="brand-value-minimal">$2.1M</div>
+                    <div class="brand-bar-minimal" style="width: 16.8%;"></div>
+                </div>
+                <div class="brand-item-minimal" style="--width: 14.4%;">
+                    <div class="brand-rank-minimal">7</div>
+                    <div class="brand-name-minimal">Steinway</div>
+                    <div class="brand-value-minimal">$1.8M</div>
+                    <div class="brand-bar-minimal" style="width: 14.4%;"></div>
+                </div>
+                <div class="brand-item-minimal" style="--width: 9.6%;">
+                    <div class="brand-rank-minimal">8</div>
+                    <div class="brand-name-minimal">Bösendorfer</div>
+                    <div class="brand-value-minimal">$1.2M</div>
+                    <div class="brand-bar-minimal" style="width: 9.6%;"></div>
+                </div>
+                <div class="brand-item-minimal" style="--width: 7.6%;">
+                    <div class="brand-rank-minimal">9</div>
+                    <div class="brand-name-minimal">Fazioli</div>
+                    <div class="brand-value-minimal">$950K</div>
+                    <div class="brand-bar-minimal" style="width: 7.6%;"></div>
+                </div>
+                <div class="brand-item-minimal" style="--width: 5.4%;">
+                    <div class="brand-rank-minimal">10</div>
+                    <div class="brand-name-minimal">Baldwin</div>
+                    <div class="brand-value-minimal">$680K</div>
+                    <div class="brand-bar-minimal" style="width: 5.4%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tasarım 5: Premium Badge with Progress -->
+        <div class="design-section">
+            <h2 class="design-title">Tasarım 5: Premium Badge with Progress</h2>
+            <div class="brand-list-premium">
+                <div class="brand-item-premium">
+                    <div class="brand-header-premium">
+                        <div class="brand-left-premium">
+                            <div class="brand-rank-premium">1</div>
+                            <div class="brand-name-premium">Yamaha</div>
+                        </div>
+                        <div class="brand-value-premium">$12.5M</div>
+                    </div>
+                    <div class="brand-progress-premium">
+                        <div class="brand-progress-bar-premium" style="width: 100%;"></div>
+                    </div>
+                    <div class="brand-percentage-premium">32.5%</div>
+                </div>
+                <div class="brand-item-premium">
+                    <div class="brand-header-premium">
+                        <div class="brand-left-premium">
+                            <div class="brand-rank-premium">2</div>
+                            <div class="brand-name-premium">Roland</div>
+                        </div>
+                        <div class="brand-value-premium">$8.2M</div>
+                    </div>
+                    <div class="brand-progress-premium">
+                        <div class="brand-progress-bar-premium" style="width: 65.6%;"></div>
+                    </div>
+                    <div class="brand-percentage-premium">21.3%</div>
+                </div>
+                <div class="brand-item-premium">
+                    <div class="brand-header-premium">
+                        <div class="brand-left-premium">
+                            <div class="brand-rank-premium">3</div>
+                            <div class="brand-name-premium">Kawai</div>
+                        </div>
+                        <div class="brand-value-premium">$6.8M</div>
+                    </div>
+                    <div class="brand-progress-premium">
+                        <div class="brand-progress-bar-premium" style="width: 54.4%;"></div>
+                    </div>
+                    <div class="brand-percentage-premium">17.7%</div>
+                </div>
+                <div class="brand-item-premium">
+                    <div class="brand-header-premium">
+                        <div class="brand-left-premium">
+                            <div class="brand-rank-premium">4</div>
+                            <div class="brand-name-premium">Casio</div>
+                        </div>
+                        <div class="brand-value-premium">$4.5M</div>
+                    </div>
+                    <div class="brand-progress-premium">
+                        <div class="brand-progress-bar-premium" style="width: 36%;"></div>
+                    </div>
+                    <div class="brand-percentage-premium">11.7%</div>
+                </div>
+                <div class="brand-item-premium">
+                    <div class="brand-header-premium">
+                        <div class="brand-left-premium">
+                            <div class="brand-rank-premium">5</div>
+                            <div class="brand-name-premium">Korg</div>
+                        </div>
+                        <div class="brand-value-premium">$3.2M</div>
+                    </div>
+                    <div class="brand-progress-premium">
+                        <div class="brand-progress-bar-premium" style="width: 25.6%;"></div>
+                    </div>
+                    <div class="brand-percentage-premium">8.3%</div>
+                </div>
+                <div class="brand-item-premium">
+                    <div class="brand-header-premium">
+                        <div class="brand-left-premium">
+                            <div class="brand-rank-premium">6</div>
+                            <div class="brand-name-premium">Nord</div>
+                        </div>
+                        <div class="brand-value-premium">$2.1M</div>
+                    </div>
+                    <div class="brand-progress-premium">
+                        <div class="brand-progress-bar-premium" style="width: 16.8%;"></div>
+                    </div>
+                    <div class="brand-percentage-premium">5.5%</div>
+                </div>
+                <div class="brand-item-premium">
+                    <div class="brand-header-premium">
+                        <div class="brand-left-premium">
+                            <div class="brand-rank-premium">7</div>
+                            <div class="brand-name-premium">Steinway</div>
+                        </div>
+                        <div class="brand-value-premium">$1.8M</div>
+                    </div>
+                    <div class="brand-progress-premium">
+                        <div class="brand-progress-bar-premium" style="width: 14.4%;"></div>
+                    </div>
+                    <div class="brand-percentage-premium">4.7%</div>
+                </div>
+                <div class="brand-item-premium">
+                    <div class="brand-header-premium">
+                        <div class="brand-left-premium">
+                            <div class="brand-rank-premium">8</div>
+                            <div class="brand-name-premium">Bösendorfer</div>
+                        </div>
+                        <div class="brand-value-premium">$1.2M</div>
+                    </div>
+                    <div class="brand-progress-premium">
+                        <div class="brand-progress-bar-premium" style="width: 9.6%;"></div>
+                    </div>
+                    <div class="brand-percentage-premium">3.1%</div>
+                </div>
+                <div class="brand-item-premium">
+                    <div class="brand-header-premium">
+                        <div class="brand-left-premium">
+                            <div class="brand-rank-premium">9</div>
+                            <div class="brand-name-premium">Fazioli</div>
+                        </div>
+                        <div class="brand-value-premium">$950K</div>
+                    </div>
+                    <div class="brand-progress-premium">
+                        <div class="brand-progress-bar-premium" style="width: 7.6%;"></div>
+                    </div>
+                    <div class="brand-percentage-premium">2.5%</div>
+                </div>
+                <div class="brand-item-premium">
+                    <div class="brand-header-premium">
+                        <div class="brand-left-premium">
+                            <div class="brand-rank-premium">10</div>
+                            <div class="brand-name-premium">Baldwin</div>
+                        </div>
+                        <div class="brand-value-premium">$680K</div>
+                    </div>
+                    <div class="brand-progress-premium">
+                        <div class="brand-progress-bar-premium" style="width: 5.4%;"></div>
+                    </div>
+                    <div class="brand-percentage-premium">1.8%</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

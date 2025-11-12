@@ -1,0 +1,16 @@
+{
+  "years": [
+    "2023",
+    "2024",
+    "2025"
+  ],
+  "total_records": 1008296,
+  "files": [
+    "data-2023.json.gz",
+    "data-2024.json.gz",
+    "data-2025.json.gz"
+  ],
+  "last_update": "2025-11-11 03:44:00",
+  "data_scope": "specific_year",
+  "target_year": "2025"
+}

@@ -1,0 +1,69 @@
+# Token Tasarrufu için Cursor Ignore Ayarları
+
+# Node modules ve dependencies
+node_modules/
+.npm/
+.yarn/
+package-lock.json
+yarn.lock
+
+# Backup ve temp dosyalar
+*.backup
+*.bak
+*.tmp
+*-backup.*
+index-backup.html
+
+# Data dosyaları (çok büyük)
+*.json.gz
+data-*.json
+*.csv
+*.xlsx
+
+# Git ve version control
+.git/
+.gitignore
+
+# IDE ve editor dosyaları
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Log dosyaları
+*.log
+update_log.txt
+
+# Build ve dist klasörleri
+dist/
+build/
+.cache/
+
+# Test dosyaları
+*.test.js
+*.spec.js
+__tests__/
+
+# Documentation (gerekmedikçe)
+docs/
+*.md
+!README.md
+!MODULARIZATION_PROPOSAL.md
+
+# Mac ve sistem dosyaları
+.DS_Store
+Thumbs.db
+
+# Büyük asset dosyaları
+*.mp4
+*.mov
+*.avi
+*.zip
+*.tar.gz
+
+# Config dosyaları (hassas bilgi içerebilir)
+.env
+.env.local
+config.json
+

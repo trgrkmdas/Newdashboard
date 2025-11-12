@@ -1,0 +1,367 @@
+/* ============================================
+   MODAL.CSS - Modal ve Overlay Stilleri
+   Login Modal, Channel Filter, vb.
+   ============================================ */
+
+/* Login Modal */
+#loginModal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.95);
+    z-index: 99999;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#loginModal > div {
+    background: rgba(30, 41, 59, 0.95);
+    backdrop-filter: blur(20px);
+    padding: 30px;
+    border-radius: 15px;
+    max-width: 400px;
+    width: 90%;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#loginModal h2 {
+    margin: 0 0 20px 0;
+    color: #f1f5f9;
+}
+
+#loginEmail,
+#loginPassword {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 15px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    font-size: 16px;
+    box-sizing: border-box;
+    background: rgba(15, 23, 42, 0.8);
+    color: #e2e8f0;
+}
+
+#loginEmail:focus,
+#loginPassword:focus {
+    border-color: #10B981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+#loginPassword {
+    margin-bottom: 10px;
+}
+
+#loginModal > div > div[style*="text-align: right"] {
+    text-align: right;
+    margin-bottom: 15px;
+}
+
+#loginModal a {
+    color: #10B981;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+#loginModal button {
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 16px;
+}
+
+#loginModal button:hover {
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+#loginError {
+    color: #ef4444;
+    margin: 15px 0 0 0;
+    font-size: 14px;
+    display: none;
+}
+
+#loginSuccess {
+    color: #4ade80;
+    margin: 15px 0 0 0;
+    font-size: 14px;
+    display: none;
+}
+
+/* User Info Buttons */
+#loginBtn,
+#logoutBtn {
+    padding: 5px 10px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 11px;
+    display: none;
+}
+
+#loginBtn {
+    background: #4ade80;
+    color: white;
+}
+
+#logoutBtn {
+    background: #ef4444;
+    color: white;
+}
+
+/* Channel Filter Section - Modern Design */
+.channel-filter-section {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+    padding: 20px 24px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.channel-filter-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%);
+}
+
+.channel-filter-section h3 {
+    color: white;
+    margin: 0 0 16px 0;
+    font-size: 1.15em;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.channel-filter-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.channel-filter-label {
+    background: rgba(255, 255, 255, 0.12);
+    padding: 10px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    color: white;
+    font-weight: 500;
+    font-size: 0.9em;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    position: relative;
+    user-select: none;
+}
+
+.channel-filter-label:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.25);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.channel-filter-label:active {
+    transform: translateY(0);
+}
+
+/* Custom Checkbox Design */
+.channel-filter-label input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s ease;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.channel-filter-label input[type="checkbox"]:checked {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: rgba(255, 255, 255, 0.95);
+}
+
+.channel-filter-label input[type="checkbox"]:checked::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #10B981;
+    font-size: 14px;
+    font-weight: bold;
+    line-height: 1;
+}
+
+.channel-filter-label input[type="checkbox"]:focus {
+    outline: 2px solid rgba(255, 255, 255, 0.5);
+    outline-offset: 2px;
+}
+
+.channel-filter-label input[type="checkbox"]:hover {
+    border-color: rgba(255, 255, 255, 0.6);
+}
+
+/* Active State Indicator - Modern browsers with :has() support */
+.channel-filter-label:has(input[type="checkbox"]:checked) {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.4);
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
+}
+
+.channel-filter-label span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    line-height: 1.4;
+}
+
+/* channelFilterInfo removed - no longer needed */
+
+/* AI Query Section - Modern Design */
+.ai-query-section {
+    margin-top: 18px;
+    padding: 16px;
+    background: rgba(15, 23, 42, 0.6);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+.ai-query-container {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+}
+
+#aiQueryInput {
+    flex: 1;
+    padding: 12px 16px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    background: rgba(30, 41, 59, 0.8);
+    backdrop-filter: blur(10px);
+    color: #e2e8f0;
+    font-size: 0.9em;
+    outline: none;
+    transition: all 0.2s ease;
+    font-family: inherit;
+}
+
+#aiQueryInput:focus {
+    border-color: #10B981;
+    background: rgba(30, 41, 59, 0.95);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+#aiQueryInput::placeholder {
+    color: #94a3b8;
+    opacity: 0.7;
+}
+
+#aiQueryButton {
+    padding: 12px 20px;
+    background: linear-gradient(135deg, #10B981 0%, #34D399 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    font-size: 0.9em;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#aiQueryButton:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+#aiQueryButton:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+}
+
+#aiResponseContainer {
+    display: none;
+    margin-top: 12px;
+    padding: 14px 16px;
+    background: rgba(30, 41, 59, 0.8);
+    backdrop-filter: blur(10px);
+    border-radius: 10px;
+    color: #e2e8f0;
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+#aiResponseText {
+    font-size: 0.9em;
+    line-height: 1.6;
+    color: #cbd5e1;
+}
+
+#aiLoadingIndicator {
+    display: none;
+    margin-top: 10px;
+    text-align: center;
+    color: white;
+    font-size: 0.9em;
+}
+
+#aiLoadingIndicator > div {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255,255,255,0.3);
+    border-top: 3px solid white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-right: 10px;
+    vertical-align: middle;
+}
+
+/* Main Container */
+#mainContainer {
+    display: none;
+}
+
+#currentUserName {
+    display: none;
+}
+

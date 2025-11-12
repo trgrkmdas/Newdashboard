@@ -1,0 +1,28 @@
+{
+  "stock_locations": {
+    "ADANA/Stok": "ADANA",
+    "AKSY/Stok": "AKASYA",
+    "ANTL/Stok": "ANTALYA",
+    "BLKNT/Stok": "",
+    "BODRM/Stok": "BODRUM",
+    "BURSA/Stok": "BURSA",
+    "DEPO/Stok": "DEPO",
+    "HILL/Stok": "Hilltown",
+    "İZMİR/Stok": "İzmir",
+    "KENT/Stok": "KENTPARK",
+    "KNYN/Stok": "KANYON",
+    "KZLY/Stok": "KIZILAY",
+    "MVBHÇ/Stok": "MAVİBAHÇE",
+    "TEM34/Stok": "TEM DEPO",
+    "TMWR/Stok": "TEマWOR",
+    "TNL/Stok": "TÜNEL",
+    "UNIQ/Stok": "UNIQ"
+  },
+  "mapping_info": {
+    "description": "Stok konumu ve mağaza ismi eşleştirmesi",
+    "usage": "Envanter verilerindeki location_id alanını mağaza isimleri ile eşleştirmek için kullanılır",
+    "note": "BLKNT/Stok için mağaza ismi belirtilmemiş",
+    "last_update": "2025-10-22"
+  }
+}
+

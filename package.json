@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "@vercel/speed-insights": "^1.2.0"
+  },
+  "devDependencies": {
+    "html-minifier-terser": "^7.2.0"
+  }
+}

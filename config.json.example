@@ -1,0 +1,17 @@
+{
+  "odoo": {
+    "url": "https://erp.zuhalmuzik.com",
+    "database": "zuhalmuzik",
+    "username": "your-email@example.com",
+    "api_key": "YOUR_API_KEY_HERE"
+  },
+  "github": {
+    "repo_path": ".",
+    "html_file": "analiz_2024_2025.html",
+    "commit_message": "Veriler güncellendi - {date}"
+  },
+  "schedule": {
+    "auto_commit": true,
+    "log_file": "update_log.txt"
+  }
+}

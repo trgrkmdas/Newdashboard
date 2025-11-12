@@ -1,0 +1,32 @@
+# Node modules
+node_modules/
+package-lock.json
+
+# Mac OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temporary files
+*.tmp
+*.temp
+
+# Backup files
+*.backup
+*.bak
+
+# Environment variables
+.env.local
+firebase-adminsdk-*.json
+serviceAccountKey.json
+
+# Config files with API keys
+config.json
+api/.env
+.vercel

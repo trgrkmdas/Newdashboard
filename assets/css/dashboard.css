@@ -1,0 +1,230 @@
+/* ============================================
+   DASHBOARD.CSS - Dashboard Özel Stilleri
+   Charts, Analysis Panel, Targets, Customers
+   ============================================ */
+
+/* Chart Container */
+.chart-container {
+    position: relative;
+    height: 400px;
+    margin: 30px 0;
+}
+
+/* Target Tracking */
+.target-section {
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(10px);
+    padding: 30px;
+    border-radius: 15px;
+    margin-bottom: 30px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.target-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.target-card {
+    background: rgba(30, 41, 59, 0.7);
+    backdrop-filter: blur(10px);
+    padding: 25px;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.target-card h3 {
+    font-size: 1.2em;
+    color: #cbd5e1;
+    margin-bottom: 15px;
+}
+
+.target-input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    font-size: 1.1em;
+    margin-bottom: 15px;
+    background: rgba(15, 23, 42, 0.8);
+    color: #e2e8f0;
+}
+
+.target-input:focus {
+    border-color: #10B981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+.progress-bar {
+    width: 100%;
+    height: 30px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    overflow: hidden;
+    margin: 15px 0;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(135deg, #10B981 0%, #34D399 100%);
+    transition: width 0.5s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+}
+
+.target-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.target-stat {
+    background: rgba(30, 41, 59, 0.8);
+    backdrop-filter: blur(5px);
+    padding: 10px;
+    border-radius: 8px;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.target-stat label {
+    font-size: 0.85em;
+    color: #94a3b8;
+    display: block;
+    margin-bottom: 5px;
+}
+
+.target-stat value {
+    font-size: 1.3em;
+    font-weight: 700;
+    color: #e2e8f0;
+}
+
+/* Customer Analysis */
+.customer-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.customer-card {
+    background: rgba(30, 41, 59, 0.7);
+    backdrop-filter: blur(10px);
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: transform 0.3s;
+    color: #e2e8f0;
+}
+
+.customer-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(16, 185, 129, 0.2);
+    background: rgba(30, 41, 59, 0.85);
+}
+
+.customer-rank {
+    display: inline-block;
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+    color: white;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 40px;
+    font-weight: 700;
+    font-size: 1.2em;
+    margin-right: 15px;
+}
+
+/* AI Analysis Panel */
+.analysis-panel {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+    color: white;
+    padding: 30px;
+    border-radius: 15px;
+    margin: 30px 0;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.analysis-section {
+    background: rgba(255,255,255,0.1);
+    padding: 20px;
+    border-radius: 10px;
+    margin: 15px 0;
+    backdrop-filter: blur(10px);
+}
+
+.analysis-section h3 {
+    margin: 0 0 15px 0;
+    font-size: 1.3em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.insight-item {
+    background: rgba(30, 41, 59, 0.6);
+    backdrop-filter: blur(10px);
+    padding: 15px;
+    border-radius: 8px;
+    margin: 10px 0;
+    border-left: 4px solid;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #e2e8f0;
+}
+
+.insight-positive {
+    border-left-color: #10B981;
+}
+
+.insight-negative {
+    border-left-color: #ef4444;
+}
+
+.insight-neutral {
+    border-left-color: #fbbf24;
+}
+
+.insight-icon {
+    font-size: 1.5em;
+    margin-right: 10px;
+}
+
+.recommendation {
+    background: rgba(30, 41, 59, 0.6);
+    backdrop-filter: blur(10px);
+    padding: 15px;
+    border-radius: 8px;
+    margin: 10px 0;
+    display: flex;
+    align-items: start;
+    gap: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #e2e8f0;
+}
+
+.recommendation-icon {
+    font-size: 2em;
+    flex-shrink: 0;
+}
+
+.metric-highlight {
+    display: inline-block;
+    background: rgba(255,255,255,0.3);
+    padding: 3px 10px;
+    border-radius: 5px;
+    font-weight: 700;
+    margin: 0 5px;
+}
+

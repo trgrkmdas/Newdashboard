@@ -1,0 +1,22 @@
+{
+  "name": "ai-proxy-backend",
+  "version": "1.0.0",
+  "description": "OpenAI GPT-4o Mini API Proxy Backend",
+  "main": "ai-proxy.js",
+  "scripts": {
+    "start": "node ai-proxy.js",
+    "dev": "node ai-proxy.js"
+  },
+  "keywords": [
+    "openai",
+    "proxy",
+    "api"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.18.2"
+  }
+}

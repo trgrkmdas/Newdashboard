@@ -1,0 +1,2392 @@
+name: Odoo Veri Güncelleme
+
+on:
+  workflow_dispatch:  # Manuel çalıştırma (sağ üstte "Run workflow" butonu)
+    inputs:
+      data_scope:
+        description: 'Veri kapsamı seçin'
+        required: false
+        default: 'all_years'
+        type: choice
+        options:
+        - all_years
+        - specific_year
+      target_year:
+        description: 'Hedef yıl (specific_year seçildiğinde)'
+        required: false
+        type: string
+  schedule:
+    - cron: '0 2 * * *'  # Her gece saat 05:00 İstanbul saati (UTC 02:00) - specific_year=2025 çekiyor
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        token: ${{ secrets.PAT_TOKEN }}
+        persist-credentials: true
+    
+    - name: Python kurulumu
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Gerekli kütüphaneleri kur
+      run: |
+        pip install requests
+    
+    - name: Odoo'dan veri çek
+      env:
+        ODOO_URL: ${{ secrets.ODOO_URL }}
+        ODOO_USERNAME: ${{ secrets.ODOO_USERNAME }}
+        ODOO_API_KEY: ${{ secrets.ODOO_API_KEY }}
+        # Otomatik çalışma (schedule) için: specific_year=2025 (KESIN)
+        # Manuel çalışma (workflow_dispatch) için: kullanıcı seçimi veya all_years
+        # NOT: github.event_name kontrolü eklendi - schedule trigger için kesin olarak specific_year=2025
+        DATA_SCOPE: ${{ github.event_name == 'schedule' && 'specific_year' || (github.event.inputs.data_scope || 'all_years') }}
+        TARGET_YEAR: ${{ github.event_name == 'schedule' && '2025' || (github.event.inputs.target_year || '2025') }}
+      run: |
+        python3 << 'EOF'
+        import os
+        import requests
+        import json
+        import time
+        from datetime import datetime, timedelta
+        import warnings
+        import xmlrpc.client
+        import ssl
+        
+        warnings.filterwarnings('ignore')
+        ssl._create_default_https_context = ssl._create_unverified_context
+        
+        print("=" * 60)
+        print("🚀 Odoo 15 API Test - Yeni Kullanıcı")
+        print("=" * 60)
+        
+        url = os.environ['ODOO_URL']
+        username = os.environ['ODOO_USERNAME']
+        password = os.environ['ODOO_API_KEY']
+        db = "erp.zuhalmuzik.com"
+        
+        print(f"🔌 URL: {url}")
+        print(f"🗄️ Database: {db}")
+        print(f"👤 Username: {username}")
+        print(f"🔐 Password: {'*' * len(password)}")
+        # Veri kapsamı kontrolü - Otomatik çalışma için 2025 sabit (KESIN)
+        data_scope = os.environ.get('DATA_SCOPE', 'specific_year')  # Otomatik çalışma için specific_year
+        target_year = os.environ.get('TARGET_YEAR', '2025')  # Otomatik çalışma için 2025 sabit
+        
+        # GÜVENLİK KONTROLÜ: Eğer DATA_SCOPE all_years ise ve schedule trigger ise, kesin olarak specific_year=2025 yap
+        # Bu ekstra güvenlik katmanı - GitHub Actions environment variable'ları bazen beklenmedik şekilde set edilebilir
+        print(f"🔍 İlk kontrol: DATA_SCOPE={data_scope}, TARGET_YEAR={target_year}")
+        if data_scope == 'all_years':
+            print(f"⚠️ UYARI: DATA_SCOPE='all_years' tespit edildi!")
+            print(f"   Bu sadece manuel çalıştırma için kullanılmalı.")
+            print(f"   Otomatik çalışma (schedule) için kesinlikle 'specific_year=2025' olmalı.")
+            print(f"   Güvenlik için 'specific_year=2025' olarak değiştiriliyor...")
+            data_scope = 'specific_year'
+            target_year = '2025'
+            print(f"✅ Güvenlik düzeltmesi: DATA_SCOPE={data_scope}, TARGET_YEAR={target_year}")
+        
+        if data_scope == 'specific_year':
+            if not target_year:
+                print("❌ HATA: specific_year seçildi ama TARGET_YEAR boş!")
+                exit(1)
+            print(f"📅 Tarih Aralığı: SADECE {target_year} YILI")
+            print(f"🎯 Hedef Yıl: {target_year}")
+        else:
+            print(f"📅 Tarih Aralığı: TÜM ZAMANLAR (tarih filtresi yok)")
+            print(f"🎯 Hedef: Tüm yıllar")
+        
+        # Batch boyutu belirleme: 2024/2025 için 5,000, diğerleri için 22,000
+        # NOT: datetime zaten yukarıda import edildi (satır 54: from datetime import datetime)
+        if data_scope == 'specific_year' and target_year in ['2024', '2025']:
+            batch_size = 5000
+            print(f"📦 Batch Boyutu (2024/2025): {batch_size:,} kayıt/batch (XML parsing hatalarını önlemek için düşürüldü)")
+        else:
+            batch_size = 22000
+            print(f"📦 Batch Boyutu: {batch_size:,} kayıt/batch")
+        
+        try:
+            # HTTP Session optimization: Keep-alive ve connection pooling
+            from requests.adapters import HTTPAdapter
+            from urllib3.util.retry import Retry
+            
+            session = requests.Session()
+            
+            # Retry stratejisi (daha hızlı)
+            retry_strategy = Retry(
+                total=3,
+                backoff_factor=0.5,  # 0.5s, 1s, 2s (daha hızlı)
+                status_forcelist=[500, 502, 503, 504],
+                allowed_methods=["POST", "GET"]
+            )
+            
+            # Connection pooling ve keep-alive
+            adapter = HTTPAdapter(
+                max_retries=retry_strategy,
+                pool_connections=10,  # Connection pool
+                pool_maxsize=20,
+                pool_block=False
+            )
+            session.mount("http://", adapter)
+            session.mount("https://", adapter)
+            
+            # Gzip compression enable
+            session.headers.update({
+                'Accept-Encoding': 'gzip, deflate',
+                'Connection': 'keep-alive'
+            })
+            
+            # Odoo 15 authenticate
+            auth_url = f"{url}/web/session/authenticate"
+            
+            auth_payload = {
+                "jsonrpc": "2.0",
+                "method": "call",
+                "params": {
+                    "db": db,
+                    "login": username,
+                    "password": password
+                },
+                "id": 1
+            }
+            
+            print("\n🔐 Kimlik doğrulama yapılıyor...")
+            
+            response = session.post(
+                auth_url,
+                json=auth_payload,
+                headers={"Content-Type": "application/json"},
+                verify=False,
+                timeout=60
+            )
+            
+            print(f"📡 HTTP Status: {response.status_code}")
+            
+            if response.status_code != 200:
+                print(f"❌ HTTP Hatası: {response.status_code}")
+                print(f"Response: {response.text[:500]}")
+                exit(1)
+            
+            result = response.json()
+            
+            # Hata kontrolü
+            if 'error' in result:
+                error_data = result['error'].get('data', {})
+                error_msg = error_data.get('message', result['error'].get('message', 'Bilinmeyen'))
+                error_name = error_data.get('name', 'Bilinmeyen')
+                
+                print(f"❌ Odoo Hatası: {error_name}")
+                print(f"📝 Mesaj: {error_msg}")
+                
+                # Detaylı debug
+                if 'debug' in error_data:
+                    debug = error_data['debug']
+                    if 'database' in debug.lower():
+                        print("\n💡 VERİTABANI HATASI TESPİT EDİLDİ!")
+                        print("Denenen DB:", db)
+                    elif 'access denied' in debug.lower() or 'credentials' in debug.lower():
+                        print("\n💡 KULLANICI ADI/ŞİFRE HATASI!")
+                        print("Username kontrol edin:", username)
+                    elif '2fa' in debug.lower() or 'two factor' in debug.lower():
+                        print("\n💡 2FA SORUNU!")
+                        print("Kullanıcıda 2FA kapalı mı kontrol edin")
+                
+                exit(1)
+            
+            # Başarılı giriş
+            if 'result' in result:
+                session_info = result['result']
+                
+                if session_info and isinstance(session_info, dict):
+                    uid = session_info.get('uid')
+                    
+                    if uid:
+                        print("\n" + "=" * 60)
+                        print("✅ BAŞARILI! ODOO'YA BAĞLANILDI!")
+                        print("=" * 60)
+                        print(f"👤 User ID: {uid}")
+                        print(f"👤 İsim: {session_info.get('name', 'N/A')}")
+                        print(f"🏢 Şirket: {session_info.get('company_name', 'N/A')}")
+                        print(f"🗄️ Gerçek DB: {session_info.get('db', 'N/A')}")
+                        print(f"🌍 User Context: {session_info.get('user_context', {})}")
+                        
+                        # Veri çekme testi
+                        print("\n" + "=" * 60)
+                        print("🎉 GİRİŞ BAŞARILI! XML-RPC İLE VERİ ÇEKMEYE GEÇİYORUZ")
+                        print("=" * 60)
+                        
+                        # XML-RPC ile devam et (daha stabil)
+                        print("\n🔄 XML-RPC bağlantısı kuruluyor...")
+                        
+                        try:
+                            common = xmlrpc.client.ServerProxy(f'{url}/xmlrpc/2/common')
+                            models = xmlrpc.client.ServerProxy(f'{url}/xmlrpc/2/object')
+                            
+                            # Tekrar authenticate (XML-RPC için)
+                            uid_xmlrpc = common.authenticate(db, username, password, {})
+                            
+                            if not uid_xmlrpc:
+                                print("❌ XML-RPC authentication başarısız!")
+                                exit(1)
+                            
+                            print(f"✅ XML-RPC bağlantısı başarılı! (UID: {uid_xmlrpc})")
+                        except Exception as e:
+                            print(f"❌ XML-RPC hatası: {e}")
+                            print("⚠️ REST API ile devam ediliyor...")
+                            models = None
+                        
+                        # KAPSAMLI VERİ ÇEKME BAŞLIYOR
+                        print("\n" + "=" * 60)
+                        print("📊 KAPSAMLI VERİ ÇEKME BAŞLADI")
+                        print("=" * 60)
+                        
+                        # XML-RPC İLE VERİ ÇEK
+                        print("\n1️⃣ ALL ZUHAL filtresi ile fatura satırları çekiliyor (XML-RPC)...")
+                        
+                        if models:
+                            # XML-RPC ile çek
+                            try:
+                                print("⏳ Veri çekiliyor (bu 2-3 dakika sürebilir)...")
+                                
+                                # ALL ZUHAL FİLTRESİ - Kullanıcının kaydedilmiş filtresini çek
+                                print("🔍 'ALL ZUHAL' filtresinin domain'i çekiliyor...")
+                                
+                                try:
+                                    # SADECE 'ALL ZUHAL' FİLTRESİNİ ARA (TEK YER)
+                                    print("🔍 'ALL ZUHAL' filtresi aranıyor...")
+                                    
+                                    filters = models.execute_kw(
+                                        db, uid_xmlrpc, password,
+                                        'ir.filters', 'search_read',
+                                        [[
+                                            ('user_id', '=', uid_xmlrpc),
+                                            ('model_id', '=', 'account.invoice.report'),
+                                            ('name', '=', 'ALL ZUHAL')
+                                        ]],
+                                        {'fields': ['name', 'domain', 'context']}
+                                    )
+                                    
+                                    # Filtre bulunamadıysa HATA VER VE DURDUR
+                                    if not filters or len(filters) == 0:
+                                        print("❌ HATA: 'ALL ZUHAL' filtresi bulunamadı!")
+                                        print("❌ Kullanıcıya özel account.invoice.report'ta 'ALL ZUHAL' filtresi olmalı.")
+                                        exit(1)
+                                    
+                                    # Filtre bulundu
+                                    filter_data = filters[0]
+                                    print(f"✅ 'ALL ZUHAL' filtresi bulundu!")
+                                    print(f"📋 Domain: {filter_data['domain']}")
+                                    
+                                    # KONTROL: Filtre out_refund'ları dahil ediyor mu?
+                                    if 'out_refund' in str(filter_data['domain']):
+                                        print("⚠️ DİKKAT: Filtre domain'inde 'out_refund' bulundu!")
+                                    else:
+                                        print("⚠️ UYARI: Filtre domain'inde 'out_refund' YOK - İadeler filtrede hariç tutulmuş olabilir!")
+                                    
+                                    # Domain'i parse et
+                                    import ast
+                                    domain = ast.literal_eval(filter_data['domain']) if filter_data['domain'] else []
+                                    
+                                    if not domain:
+                                        print("❌ HATA: Filtre domain'i boş!")
+                                        exit(1)
+                                    
+                                    # Domain'i account.move.line formatına çevir
+                                    print("🔄 Domain account.move.line formatına çevriliyor...")
+                                    converted_domain = []
+                                    has_move_type_filter = False
+                                    
+                                    for item in domain:
+                                        if isinstance(item, tuple) and len(item) >= 3:
+                                            field, operator, value = item[0], item[1], item[2]
+                                            # Alan adlarını dönüştür
+                                            if field == 'state':
+                                                # account.move.line'da state alanı yok, atla
+                                                continue
+                                            elif field == 'move_type':
+                                                field = 'move_id.move_type'
+                                                has_move_type_filter = True
+                                                # ÖNEMLİ: move_type filtresini out_invoice VE out_refund içerecek şekilde değiştir
+                                                if operator == '=' and value == 'out_invoice':
+                                                    # Sadece out_invoice varsa, out_refund'u da ekle
+                                                    operator = 'in'
+                                                    value = ('out_invoice', 'out_refund')
+                                                    print("🔧 move_type filtresi güncellendi: out_invoice + out_refund dahil")
+                                                elif operator == 'in' and isinstance(value, (list, tuple)):
+                                                    # Eğer liste varsa ve out_refund yoksa ekle
+                                                    value_list = list(value)
+                                                    if 'out_invoice' in value_list and 'out_refund' not in value_list:
+                                                        value_list.append('out_refund')
+                                                        value = tuple(value_list)
+                                                        print("🔧 move_type filtresine out_refund eklendi")
+                                            elif field == 'analytic_account_id':
+                                                field = 'analytic_account_id'
+                                            elif field == 'product_categ_id':
+                                                field = 'product_id.categ_id'
+                                            elif field == 'product_id':
+                                                field = 'product_id'
+                                            converted_domain.append((field, operator, value))
+                                        else:
+                                            converted_domain.append(item)
+                                    
+                                    # Eğer move_type filtresi yoksa ekle (hem out_invoice hem out_refund)
+                                    if not has_move_type_filter:
+                                        converted_domain.append(('move_id.move_type', 'in', ('out_invoice', 'out_refund')))
+                                        print("➕ move_type filtresi eklendi: out_invoice + out_refund")
+                                    
+                                    # display_type ekle
+                                    converted_domain.append(('display_type', '=', False))
+                                    
+                                    # ÖNEMLİ: SADECE POSTED (Onaylanmış) FATURALARI ÇEK
+                                    # Taslak (draft) ve iptal (cancel) faturaları HARİÇ TUT
+                                    converted_domain.append(('move_id.state', '=', 'posted'))
+                                    print("🔒 State filtresi eklendi: SADECE posted (onaylanmış) faturalar")
+                                    
+                                    # YIL FİLTRESİ EKLE
+                                    if data_scope == 'specific_year':
+                                        print(f"📅 SADECE {target_year} YILI çekiliyor!")
+                                        # Tarih filtresi ekle
+                                        converted_domain.append(('date', '>=', f'{target_year}-01-01'))
+                                        converted_domain.append(('date', '<=', f'{target_year}-12-31'))
+                                    else:
+                                        print("📅 TÜM ZAMANLAR çekiliyor!")
+                                    
+                                    domain = converted_domain
+                                    print(f"✅ Domain dönüştürüldü: {len(domain)} koşul")
+                                    
+                                    # DOĞRULAMA: move_type ve state filtrelerinin varlığını kontrol et
+                                    move_type_found = False
+                                    posted_state_found = False
+                                    for item in domain:
+                                        if isinstance(item, tuple) and len(item) >= 3:
+                                            field, operator, value = item[0], item[1], item[2]
+                                            if field == 'move_id.move_type':
+                                                move_type_found = True
+                                                print(f"✅ DOĞRULAMA: move_type filtresi bulundu: {operator} {value}")
+                                                if isinstance(value, (list, tuple)):
+                                                    if 'out_invoice' in value and 'out_refund' in value:
+                                                        print(f"   ✅ Sadece out_invoice ve out_refund çekilecek (doğru)")
+                                                    else:
+                                                        print(f"   ⚠️ UYARI: move_type değerleri beklenen değil: {value}")
+                                            elif field == 'move_id.state':
+                                                posted_state_found = True
+                                                if operator == '=' and value == 'posted':
+                                                    print(f"✅ DOĞRULAMA: State filtresi bulundu: SADECE posted (onaylanmış) faturalar")
+                                                else:
+                                                    print(f"   ⚠️ UYARI: State filtresi beklenen değil: {operator} {value}")
+                                    
+                                    if not move_type_found:
+                                        print("❌ UYARI: move_type filtresi bulunamadı!")
+                                    if not posted_state_found:
+                                        print("❌ UYARI: move_id.state filtresi bulunamadı!")
+                                    
+                                    # Final domain'i logla (debug için)
+                                    print(f"📋 FINAL DOMAIN ({len(domain)} koşul):")
+                                    for idx, item in enumerate(domain, 1):
+                                        if isinstance(item, tuple) and len(item) >= 3:
+                                            print(f"   {idx}. {item[0]} {item[1]} {item[2]}")
+                                        else:
+                                            print(f"   {idx}. {item}")
+                                    
+                                except Exception as e:
+                                    print(f"❌ HATA: Filtre çekme hatası: {e}")
+                                    import traceback
+                                    traceback.print_exc()
+                                    exit(1)
+                                
+                                # Kayıt sayısını kontrol et (account.move.line) - 2023 için çok yavaş, atla
+                                print("📊 Kayıt sayısı kontrolü atlanıyor (2023 için çok yavaş)...")
+                                
+                                # account.move.line alanları
+                                fields = [
+                                    'move_id', 'date', 'create_date', 'write_date',
+                                    'product_id', 'quantity', 'price_subtotal', 
+                                    'currency_id', 'partner_id', 'analytic_account_id', 'id'
+                                ]
+                                
+                                # ÖZEL BATCH STRATEJİSİ İLE VERİ ÇEKME
+                                print("🎯 Özel batch stratejisi ile veri çekiliyor...")
+                                
+                                # Yıla göre batch stratejisi belirleme
+                                # all_years için tüm yılları birleştir, specific_year için tek yıl
+                                all_data = []
+                                all_years_combined_data = []  # all_years için tüm yılları tutmak için
+                                
+                                # all_years durumunda yılları ayrı ayrı işle
+                                if data_scope == 'all_years':
+                                    print("📅 TÜM YILLAR çekilecek (her yıl için özel batch stratejisi):")
+                                    years_to_process = ['2023', '2024', '2025']
+                                    for processing_year in years_to_process:
+                                        print(f"\n{'='*60}")
+                                        print(f"🗓️ {processing_year} YILI İŞLENİYOR")
+                                        print(f"{'='*60}")
+                                        
+                                        # Her yıl için all_data'yı temizle
+                                        all_data = []
+                                        
+                                        # Yıl için domain oluştur
+                                        year_domain = domain + [
+                                            ('date', '>=', f'{processing_year}-01-01'),
+                                            ('date', '<=', f'{processing_year}-12-31')
+                                        ]
+                                        
+                                        # 2023 için özel mantık
+                                        if processing_year == '2023':
+                                            print("🗓️ 2023 yılı çekilecek:")
+                                            print("   - Aralık: GÜNLÜK batch stratejisi (problematik günleri izole etmek için)")
+                                            print("   - Diğer aylar: Aylık batch stratejisi (2500 batch size)")
+                                            month_days = {
+                                                '01': 31, '02': 28, '03': 31, '04': 30,
+                                                '05': 31, '06': 30, '07': 31, '08': 31,
+                                                '09': 30, '10': 31, '11': 30, '12': 31
+                                            }
+                                            for mm in [f"{i:02d}" for i in range(1, 13)]:
+                                                month_start = f"{processing_year}-{mm}-01"
+                                                month_end = f"{processing_year}-{mm}-{month_days[mm]}"
+                                        
+                                                # Aralık için GÜNLÜK strateji, diğerleri için AYLIK strateji
+                                                if mm == '12':
+                                                    print(f"\n📅 {mm}/{processing_year} GÜNLÜK çekiliyor (problematik günleri izole etmek için)...")
+                                                    current_date = datetime.strptime(month_start, '%Y-%m-%d')
+                                                    month_end_dt = datetime.strptime(month_end, '%Y-%m-%d')
+                                                    skipped_days = []
+                                                    
+                                                    while current_date <= month_end_dt:
+                                                        day_str = current_date.strftime('%Y-%m-%d')
+                                                        day_domain = year_domain + [('date', '=', day_str)]
+                                                        current_batch_size = 250
+                                                        print(f"   📆 {day_str} çekiliyor...")
+                                                        offset = 0
+                                                        batch_count = 0
+                                                        day_success = False
+                                                        
+                                                        problematic_records_skipped = 0
+                                                        max_problematic_records = 50  # Gün içinde 50'den fazla sorunlu kayıt varsa günü atla
+                                                        
+                                                        while True:
+                                                            batch_count += 1
+                                                            retry_count = 0
+                                                            batch_data = []
+                                                            original_batch_size = current_batch_size
+                                                            
+                                                            while retry_count < 5:  # XML parsing için daha fazla deneme
+                                                                try:
+                                                                    safe_fields = [
+                                                                        'move_id', 'date', 'create_date', 'write_date',
+                                                                        'product_id', 'quantity', 'price_subtotal',
+                                                                        'currency_id', 'partner_id', 'analytic_account_id', 'id',
+                                                                    ]
+                                                                    batch_data = models.execute_kw(
+                                                                        db, uid_xmlrpc, password,
+                                                                        'account.move.line', 'search_read',
+                                                                        [day_domain],
+                                                                        {'fields': safe_fields, 'limit': current_batch_size, 'offset': offset}
+                                                                    )
+                                                                    break
+                                                                except Exception as retry_error:
+                                                                    retry_count += 1
+                                                                    error_msg = str(retry_error)[:200]
+                                                                    
+                                                                    # 500 Internal Server Error için exponential backoff
+                                                                    if "500 Internal Server Error" in str(retry_error):
+                                                                        wait_time = min(3 * (2 ** retry_count), 30)  # 3s, 6s, 12s, 24s, 30s
+                                                                        print(f"   ⚠️ {day_str} Batch {batch_count} Retry {retry_count}/5: 500 Server Error - {wait_time}s bekleniyor...")
+                                                                        time.sleep(wait_time)
+                                                                        if retry_count >= 5:
+                                                                            print(f"   ❌ {day_str}: 500 hatası tüm denemeler başarısız, gün atlanıyor...")
+                                                                            skipped_days.append(day_str)
+                                                                            break
+                                                                        continue
+                                                                    
+                                                                    # XML parsing hatası için agresif küçültme
+                                                                    if "not well-formed" in error_msg or "invalid token" in error_msg:
+                                                                        print(f"   🔧 {day_str} XML parsing hatası (line/column belirtili): batch boyutu küçültülüyor...")
+                                                                        if current_batch_size > 1:
+                                                                            current_batch_size = max(1, current_batch_size // 4)  # 1/4'e indir (250→62→15→3→1)
+                                                                        else:
+                                                                            # Batch 1'de bile hata varsa, bu kaydı atla ve diğerlerini çekmeye devam et
+                                                                            problematic_records_skipped += 1
+                                                                            print(f"   ⚠️ {day_str}: Sorunlu kayıt #{problematic_records_skipped} atlanıyor (offset: {offset})...")
+                                                                            offset += 1
+                                                                            current_batch_size = original_batch_size  # Reset
+                                                                            
+                                                                            # Çok fazla sorunlu kayıt varsa günü atla
+                                                                            if problematic_records_skipped >= max_problematic_records:
+                                                                                print(f"   ❌ {day_str}: {problematic_records_skipped} sorunlu kayıt bulundu, gün atlanıyor...")
+                                                                                skipped_days.append(day_str)
+                                                                                break
+                                                                            
+                                                                            # Retry'yi sıfırla ve devam et
+                                                                            retry_count = 0
+                                                                            continue
+                                                                        print(f"   📦 Yeni batch boyutu: {current_batch_size}")
+                                                                    
+                                                                    if retry_count >= 5:
+                                                                        # Sadece 500 hatası değilse, kaydı atla
+                                                                        if "500 Internal Server Error" not in str(retry_error):
+                                                                            problematic_records_skipped += 1
+                                                                            print(f"   ⚠️ {day_str}: Sorunlu kayıt #{problematic_records_skipped} atlanıyor (offset: {offset}, retry başarısız)...")
+                                                                            offset += 1
+                                                                            current_batch_size = original_batch_size
+                                                                            if problematic_records_skipped >= max_problematic_records:
+                                                                                print(f"   ❌ {day_str}: {problematic_records_skipped} sorunlu kayıt bulundu, gün atlanıyor...")
+                                                                                skipped_days.append(day_str)
+                                                                                break
+                                                                            retry_count = 0
+                                                                            continue
+                                                                        else:
+                                                                            print(f"   ❌ {day_str} Batch {batch_count}: Tüm denemeler başarısız...")
+                                                                            skipped_days.append(day_str)
+                                                                            break
+                                                                    time.sleep(2)
+                                                            
+                                                            if not batch_data or len(batch_data) == 0:
+                                                                if day_str not in skipped_days:
+                                                                    day_success = True
+                                                                break
+                                                            
+                                                            if day_str in skipped_days:
+                                                                break
+                                                            
+                                                            try:
+                                                                # Duplicate kontrolü kaldırıldı - direkt ekle
+                                                                if batch_data:
+                                                                    all_data.extend(batch_data)
+                                                                if len(batch_data) < current_batch_size:
+                                                                    day_success = True
+                                                                    break
+                                                                offset += current_batch_size
+                                                                current_batch_size = original_batch_size  # Reset batch size
+                                                            except Exception as e:
+                                                                print(f"   ❌ {day_str} Veri işleme hatası: {str(e)[:200]}")
+                                                                offset += current_batch_size
+                                                                continue
+                                                        
+                                                        if day_success:
+                                                            print(f"   ✅ {day_str} tamamlandı!")
+                                                        
+                                                        current_date += timedelta(days=1)
+                                                    
+                                                    if skipped_days:
+                                                        print(f"   ⚠️ Atlanan günler: {', '.join(skipped_days)}")
+                                                
+                                                else:
+                                                    # Diğer aylar: Normal aylık strateji
+                                                    month_domain = year_domain + [('date', '>=', month_start), ('date', '<=', month_end)]
+                                                    current_batch_size = 2500
+                                                    print(f"\n📦 {mm}/{processing_year} çekiliyor | BatchSize={current_batch_size}")
+                                                    offset = 0
+                                                    batch_count = 0
+                                                    max_errors = 5
+                                                    error_count = 0
+                                                    max_retries = 5  # Artırıldı
+                                                    
+                                                    while True:
+                                                        batch_count += 1
+                                                        if batch_count % 50 == 1:
+                                                            print(f"📦 Batch {batch_count}: Offset {offset:,} - {offset + current_batch_size:,} (Size: {current_batch_size})")
+                                                        retry_count = 0
+                                                        batch_data = []
+                                                        original_batch_size = current_batch_size
+                                                        
+                                                        while retry_count < max_retries:
+                                                            try:
+                                                                safe_fields = [
+                                                                    'move_id', 'date', 'create_date', 'write_date',
+                                                                    'product_id', 'quantity', 'price_subtotal',
+                                                                    'currency_id', 'partner_id', 'analytic_account_id', 'id',
+                                                                ]
+                                                                batch_data = models.execute_kw(
+                                                                    db, uid_xmlrpc, password,
+                                                                    'account.move.line', 'search_read',
+                                                                    [month_domain],
+                                                                    {'fields': safe_fields, 'limit': current_batch_size, 'offset': offset}
+                                                                )
+                                                                break
+                                                            except Exception as retry_error:
+                                                                retry_count += 1
+                                                                error_msg = str(retry_error)[:200]
+                                                                print(f"⚠️ Batch {batch_count} Retry {retry_count}/{max_retries}: {error_msg}")
+                                                                
+                                                                # 500 Internal Server Error için exponential backoff
+                                                                if "500 Internal Server Error" in str(retry_error):
+                                                                    wait_time = min(3 * (2 ** retry_count), 30)
+                                                                    print(f"🔄 500 Server Error - {wait_time}s bekleniyor...")
+                                                                    time.sleep(wait_time)
+                                                                    if retry_count >= max_retries:
+                                                                        print("❌ Batch tüm denemeler başarısız, atlanıyor...")
+                                                                        break
+                                                                    continue
+                                                                
+                                                                # XML parsing hatası için agresif küçültme
+                                                                if "not well-formed" in error_msg or "invalid token" in error_msg:
+                                                                    print("🔧 XML parsing hatası: batch boyutu agresif küçültülüyor...")
+                                                                    current_batch_size = max(1, current_batch_size // 4)  # 1/4'e indir
+                                                                    print(f"📦 Yeni batch boyutu: {current_batch_size}")
+                                                                
+                                                                if retry_count >= max_retries:
+                                                                    print("❌ Batch tüm denemeler başarısız, atlanıyor...")
+                                                                    break
+                                                                time.sleep(3)
+                                                        
+                                                        if not batch_data or len(batch_data) == 0:
+                                                            print("✅ Ay içi veri bitti!")
+                                                            break
+                                                        
+                                                        try:
+                                                            # Duplicate kontrolü kaldırıldı - direkt ekle
+                                                            if batch_data:
+                                                                all_data.extend(batch_data)
+                                                                error_count = 0
+                                                            current_batch_size = original_batch_size  # Reset
+                                                            if len(batch_data) < current_batch_size:
+                                                                print("✅ Ay son batch tamamlandı!")
+                                                                break
+                                                            offset += current_batch_size
+                                                        except Exception as e:
+                                                            error_count += 1
+                                                            print(f"❌ Batch HATASI: {str(e)[:200]}")
+                                                            print(f"🔍 Hata detayı: Month={mm}, BatchSize={current_batch_size}, Offset={offset}")
+                                                            if error_count >= max_errors:
+                                                                print("❌ Çok fazla hata, ay döngüsü durduruluyor...")
+                                                                break
+                                                            time.sleep(5)
+                                                            offset += current_batch_size
+                                                            continue
+                                            
+                                            year_data_count = len([d for d in all_data if d.get('date', '')[:4] == processing_year])
+                                            print(f"✅ {processing_year} yılı tamamlandı: {year_data_count} kayıt")
+                                            
+                                            # Yıl verilerini combined list'e ekle (duplicate kontrolü kaldırıldı)
+                                            all_years_combined_data.extend(all_data)
+                                        
+                                        # 2024/2025 için 5,000 batch size
+                                        elif processing_year in ['2024', '2025']:
+                                            print(f"📦 {processing_year} yılı çekiliyor (BatchSize=5,000)...")
+                                            offset = 0
+                                            batch_count = 0
+                                            max_errors = 5
+                                            error_count = 0
+                                            max_retries = 5
+                                            current_batch_size = 5000
+                                            original_batch_size = 5000
+                                            
+                                            while True:
+                                                batch_count += 1
+                                                if batch_count % 50 == 1:
+                                                    print(f"📦 Batch {batch_count}: Offset {offset:,} - {offset + current_batch_size:,} (Size: {current_batch_size})")
+                                                retry_count = 0
+                                                batch_data = []
+                                                
+                                                while retry_count < max_retries:
+                                                    try:
+                                                        safe_fields = [
+                                                            'move_id', 'date', 'create_date', 'write_date',
+                                                            'product_id', 'quantity', 'price_subtotal',
+                                                            'currency_id', 'partner_id', 'analytic_account_id', 'id',
+                                                        ]
+                                                        batch_data = models.execute_kw(
+                                                            db, uid_xmlrpc, password,
+                                                            'account.move.line', 'search_read',
+                                                            [year_domain],
+                                                            {'fields': safe_fields, 'limit': current_batch_size, 'offset': offset}
+                                                        )
+                                                        break
+                                                    except Exception as retry_error:
+                                                        retry_count += 1
+                                                        error_msg = str(retry_error)[:200]
+                                                        print(f"⚠️ Batch {batch_count} Retry {retry_count}/{max_retries}: {error_msg}")
+                                                        
+                                                        # 500 Internal Server Error için exponential backoff
+                                                        if "500 Internal Server Error" in str(retry_error):
+                                                            wait_time = min(3 * (2 ** retry_count), 30)
+                                                            print(f"🔄 500 Server Error - {wait_time}s bekleniyor...")
+                                                            time.sleep(wait_time)
+                                                            if retry_count >= max_retries:
+                                                                print(f"❌ Batch {batch_count} tüm denemeler başarısız, atlanıyor...")
+                                                                break
+                                                            continue
+                                                        
+                                                        # XML parsing hatası için agresif küçültme
+                                                        if "not well-formed" in error_msg or "invalid token" in error_msg:
+                                                            print(f"🔧 XML parsing hatası tespit edildi, batch boyutu agresif küçültülüyor...")
+                                                            current_batch_size = max(1, current_batch_size // 4)  # 1/4'e indir
+                                                            print(f"📦 Yeni batch boyutu: {current_batch_size}")
+                                                        
+                                                        if retry_count >= max_retries:
+                                                            print(f"❌ Batch {batch_count} tüm denemeler başarısız, atlanıyor...")
+                                                            break
+                                                        time.sleep(3)
+                                                
+                                                if not batch_data or len(batch_data) == 0:
+                                                    print(f"✅ {processing_year} yılı veri bitti!")
+                                                    break
+                                                
+                                                try:
+                                                    # Duplicate kontrolü kaldırıldı - direkt ekle
+                                                    if batch_data:
+                                                        all_data.extend(batch_data)
+                                                    error_count = 0
+                                                    current_batch_size = original_batch_size  # Reset batch size
+                                                    if len(batch_data) < current_batch_size:
+                                                        print(f"✅ {processing_year} yılı son batch tamamlandı! (Toplam: {len(all_data)} kayıt)")
+                                                        break
+                                                    offset += current_batch_size
+                                                except Exception as e:
+                                                    error_count += 1
+                                                    print(f"❌ Batch {batch_count} HATASI: {str(e)[:200]}")
+                                                    print(f"🔍 Hata detayı: Year={processing_year}, BatchSize={current_batch_size}, Offset={offset}")
+                                                    if error_count >= max_errors:
+                                                        print(f"❌ Çok fazla hata ({max_errors}), {processing_year} yılı durduruluyor...")
+                                                        break
+                                                    time.sleep(5)
+                                                    offset += current_batch_size
+                                                    continue
+                                            
+                                            year_data_count = len([d for d in all_data if d.get('date', '')[:4] == processing_year])
+                                            print(f"✅ {processing_year} yılı tamamlandı: {year_data_count} kayıt")
+                                            
+                                            # Yıl verilerini combined list'e ekle (duplicate kontrolü kaldırıldı)
+                                            all_years_combined_data.extend(all_data)
+                                
+                                # all_years için combined_data'yı kullan
+                                if data_scope == 'all_years':
+                                    print(f"\n📊 TÜM YILLAR birleştirildi: {len(all_years_combined_data)} unique kayıt")
+                                    all_data = all_years_combined_data
+                                
+                                # specific_year durumunda (mevcut mantık)
+                                elif data_scope == 'specific_year' and target_year == '2023':
+                                    print("🗓️ 2023 yılı çekilecek:")
+                                    print("   - Aralık: GÜNLÜK batch stratejisi (problematik günleri izole etmek için)")
+                                    print("   - Diğer aylar: Aylık batch stratejisi (2500 batch size)")
+                                    month_days = {
+                                        '01': 31, '02': 28, '03': 31, '04': 30,
+                                        '05': 31, '06': 30, '07': 31, '08': 31,
+                                        '09': 30, '10': 31, '11': 30, '12': 31
+                                    }
+                                    for mm in [f"{i:02d}" for i in range(1, 13)]:
+                                        month_start = f"{target_year}-{mm}-01"
+                                        month_end = f"{target_year}-{mm}-{month_days[mm]}"
+                                        
+                                        # Aralık için GÜNLÜK strateji, diğerleri için AYLIK strateji
+                                        if mm == '12':
+                                            print(f"\n📅 {mm}/{target_year} GÜNLÜK çekiliyor (problematik günleri izole etmek için)...")
+                                            current_date = datetime.strptime(month_start, '%Y-%m-%d')
+                                            month_end_dt = datetime.strptime(month_end, '%Y-%m-%d')
+                                            skipped_days = []
+                                            
+                                            while current_date <= month_end_dt:
+                                                day_str = current_date.strftime('%Y-%m-%d')
+                                                day_domain = domain + [('date', '=', day_str)]
+                                                current_batch_size = 250
+                                                print(f"   📆 {day_str} çekiliyor...")
+                                                offset = 0
+                                                batch_count = 0
+                                                day_success = False
+                                                problematic_records_skipped = 0
+                                                max_problematic_records = 50  # Gün içinde 50'den fazla sorunlu kayıt varsa günü atla
+                                                
+                                                while True:
+                                                    batch_count += 1
+                                                    retry_count = 0
+                                                    batch_data = []
+                                                    original_batch_size = current_batch_size
+                                                    
+                                                    while retry_count < 5:  # XML parsing için daha fazla deneme
+                                                        try:
+                                                            safe_fields = [
+                                                                'move_id', 'date', 'create_date', 'write_date',
+                                                                'product_id', 'quantity', 'price_subtotal',
+                                                                'currency_id', 'partner_id', 'analytic_account_id', 'id'
+                                                            ]
+                                                            batch_data = models.execute_kw(
+                                                                db, uid_xmlrpc, password,
+                                                                'account.move.line', 'search_read',
+                                                                [day_domain],
+                                                                {'fields': safe_fields, 'limit': current_batch_size, 'offset': offset}
+                                                            )
+                                                            break
+                                                        except Exception as retry_error:
+                                                            retry_count += 1
+                                                            error_msg = str(retry_error)[:200]
+                                                            
+                                                            # 500 Internal Server Error için exponential backoff
+                                                            if "500 Internal Server Error" in str(retry_error):
+                                                                wait_time = min(3 * (2 ** retry_count), 30)  # 3s, 6s, 12s, 24s, 30s
+                                                                print(f"   ⚠️ {day_str} Batch {batch_count} Retry {retry_count}/5: 500 Server Error - {wait_time}s bekleniyor...")
+                                                                time.sleep(wait_time)
+                                                                if retry_count >= 5:
+                                                                    print(f"   ❌ {day_str}: 500 hatası tüm denemeler başarısız, gün atlanıyor...")
+                                                                    skipped_days.append(day_str)
+                                                                    break
+                                                                continue
+                                                            
+                                                            # XML parsing hatası için agresif küçültme
+                                                            if "not well-formed" in error_msg or "invalid token" in error_msg:
+                                                                print(f"   🔧 {day_str} XML parsing hatası (line/column belirtili): batch boyutu küçültülüyor...")
+                                                                if current_batch_size > 1:
+                                                                    current_batch_size = max(1, current_batch_size // 4)  # 1/4'e indir (250→62→15→3→1)
+                                                                else:
+                                                                    # Batch 1'de bile hata varsa, bu kaydı atla ve diğerlerini çekmeye devam et
+                                                                    problematic_records_skipped += 1
+                                                                    print(f"   ⚠️ {day_str}: Sorunlu kayıt #{problematic_records_skipped} atlanıyor (offset: {offset})...")
+                                                                    offset += 1
+                                                                    current_batch_size = original_batch_size  # Reset
+                                                                    
+                                                                    # Çok fazla sorunlu kayıt varsa günü atla
+                                                                    if problematic_records_skipped >= max_problematic_records:
+                                                                        print(f"   ❌ {day_str}: {problematic_records_skipped} sorunlu kayıt bulundu, gün atlanıyor...")
+                                                                        skipped_days.append(day_str)
+                                                                        break
+                                                                    
+                                                                    # Retry'yi sıfırla ve devam et
+                                                                    retry_count = 0
+                                                                    continue
+                                                                print(f"   📦 Yeni batch boyutu: {current_batch_size}")
+                                                            
+                                                            if retry_count >= 5:
+                                                                # Sadece 500 hatası değilse, kaydı atla
+                                                                if "500 Internal Server Error" not in str(retry_error):
+                                                                    problematic_records_skipped += 1
+                                                                    print(f"   ⚠️ {day_str}: Sorunlu kayıt #{problematic_records_skipped} atlanıyor (offset: {offset}, retry başarısız)...")
+                                                                    offset += 1
+                                                                    current_batch_size = original_batch_size
+                                                                    if problematic_records_skipped >= max_problematic_records:
+                                                                        print(f"   ❌ {day_str}: {problematic_records_skipped} sorunlu kayıt bulundu, gün atlanıyor...")
+                                                                        skipped_days.append(day_str)
+                                                                        break
+                                                                    retry_count = 0
+                                                                    continue
+                                                                else:
+                                                                    print(f"   ❌ {day_str} Batch {batch_count}: Tüm denemeler başarısız...")
+                                                                    skipped_days.append(day_str)
+                                                                    break
+                                                            time.sleep(2)
+                                                    
+                                                    if not batch_data or len(batch_data) == 0:
+                                                        if day_str not in skipped_days:
+                                                            day_success = True
+                                                        break
+                                                    
+                                                    if day_str in skipped_days:
+                                                        break
+                                                    
+                                                    try:
+                                                        # Duplicate kontrolü kaldırıldı - direkt ekle
+                                                        if batch_data:
+                                                            all_data.extend(batch_data)
+                                                        if len(batch_data) < current_batch_size:
+                                                            day_success = True
+                                                            break
+                                                        offset += current_batch_size
+                                                        current_batch_size = original_batch_size  # Reset batch size
+                                                    except Exception as e:
+                                                        print(f"   ❌ {day_str} Veri işleme hatası: {str(e)[:200]}")
+                                                        offset += current_batch_size
+                                                        continue
+                                                
+                                                if day_success:
+                                                    print(f"   ✅ {day_str} tamamlandı!")
+                                                
+                                                current_date += timedelta(days=1)
+                                            
+                                            if skipped_days:
+                                                print(f"   ⚠️ Atlanan günler: {', '.join(skipped_days)}")
+                                        
+                                        else:
+                                            # Diğer aylar: Normal aylık strateji
+                                            month_domain = domain + [('date', '>=', month_start), ('date', '<=', month_end)]
+                                            current_batch_size = 2500
+                                            print(f"\n📦 {mm}/{target_year} çekiliyor | BatchSize={current_batch_size}")
+                                            offset = 0
+                                            batch_count = 0
+                                            max_errors = 5
+                                            error_count = 0
+                                            max_retries = 5  # Artırıldı
+                                            
+                                            while True:
+                                                batch_count += 1
+                                                if batch_count % 50 == 1:
+                                                    print(f"📦 Batch {batch_count}: Offset {offset:,} - {offset + current_batch_size:,} (Size: {current_batch_size})")
+                                                retry_count = 0
+                                                batch_data = []
+                                                original_batch_size = current_batch_size
+                                                
+                                                while retry_count < max_retries:
+                                                    try:
+                                                        safe_fields = [
+                                                            'move_id', 'date', 'create_date', 'write_date',
+                                                            'product_id', 'quantity', 'price_subtotal',
+                                                            'currency_id', 'partner_id', 'analytic_account_id', 'id',
+                                                        ]
+                                                        batch_data = models.execute_kw(
+                                                            db, uid_xmlrpc, password,
+                                                            'account.move.line', 'search_read',
+                                                            [month_domain],
+                                                            {'fields': safe_fields, 'limit': current_batch_size, 'offset': offset}
+                                                        )
+                                                        break
+                                                    except Exception as retry_error:
+                                                        retry_count += 1
+                                                        error_msg = str(retry_error)[:200]
+                                                        print(f"⚠️ Batch {batch_count} Retry {retry_count}/{max_retries}: {error_msg}")
+                                                        
+                                                        # 500 Internal Server Error için exponential backoff
+                                                        if "500 Internal Server Error" in str(retry_error):
+                                                            wait_time = min(3 * (2 ** retry_count), 30)
+                                                            print(f"🔄 500 Server Error - {wait_time}s bekleniyor...")
+                                                            time.sleep(wait_time)
+                                                            if retry_count >= max_retries:
+                                                                print("❌ Batch tüm denemeler başarısız, atlanıyor...")
+                                                                break
+                                                            continue
+                                                        
+                                                        # XML parsing hatası için agresif küçültme
+                                                        if "not well-formed" in error_msg or "invalid token" in error_msg:
+                                                            print("🔧 XML parsing hatası: batch boyutu agresif küçültülüyor...")
+                                                            current_batch_size = max(1, current_batch_size // 4)  # 1/4'e indir
+                                                            print(f"📦 Yeni batch boyutu: {current_batch_size}")
+                                                        
+                                                        if retry_count >= max_retries:
+                                                            print("❌ Batch tüm denemeler başarısız, atlanıyor...")
+                                                            break
+                                                        time.sleep(3)
+                                                
+                                                if not batch_data or len(batch_data) == 0:
+                                                    print("✅ Ay içi veri bitti!")
+                                                    break
+                                                
+                                                try:
+                                                    # Duplicate kontrolü kaldırıldı - direkt ekle
+                                                    if batch_data:
+                                                        all_data.extend(batch_data)
+                                                    error_count = 0
+                                                    current_batch_size = original_batch_size  # Reset
+                                                    if len(batch_data) < current_batch_size:
+                                                        print("✅ Ay son batch tamamlandı!")
+                                                        break
+                                                    offset += current_batch_size
+                                                except Exception as e:
+                                                    error_count += 1
+                                                    print(f"❌ Batch HATASI: {str(e)[:200]}")
+                                                    print(f"🔍 Hata detayı: Month={mm}, BatchSize={current_batch_size}, Offset={offset}")
+                                                    if error_count >= max_errors:
+                                                        print("❌ Çok fazla hata, ay döngüsü durduruluyor...")
+                                                        break
+                                                    time.sleep(5)
+                                                    offset += current_batch_size
+                                                    continue
+                                else:
+                                    # Diğer tüm durumlar: mevcut tek döngü stratejisi
+                                    offset = 0
+                                    batch_count = 0
+                                    max_errors = 5
+                                    error_count = 0
+                                    max_retries = 5  # Artırıldı
+                                    while True:
+                                        batch_count += 1
+                                        special_domain = domain
+                                        current_batch_size = batch_size
+                                        original_batch_size = batch_size
+                                        if batch_count % 50 == 1:
+                                            print(f"📦 Batch {batch_count}: Offset {offset:,} - {offset + current_batch_size:,} (Size: {current_batch_size})")
+                                        retry_count = 0
+                                        batch_data = []
+                                        while retry_count < max_retries:
+                                            try:
+                                                safe_fields = [
+                                                    'move_id', 'date', 'create_date', 'write_date',
+                                                    'product_id', 'quantity', 'price_subtotal', 
+                                                    'currency_id', 'partner_id', 'analytic_account_id', 'id'
+                                                ]
+                                                batch_data = models.execute_kw(
+                                                    db, uid_xmlrpc, password,
+                                                    'account.move.line', 'search_read',
+                                                    [special_domain],
+                                                    {'fields': safe_fields, 'limit': current_batch_size, 'offset': offset}
+                                                )
+                                                break
+                                            except Exception as retry_error:
+                                                retry_count += 1
+                                                error_msg = str(retry_error)[:200]
+                                                print(f"⚠️ Batch {batch_count} Retry {retry_count}/{max_retries}: {error_msg}")
+                                                
+                                                # 500 Internal Server Error için exponential backoff
+                                                if "500 Internal Server Error" in str(retry_error):
+                                                    wait_time = min(3 * (2 ** retry_count), 30)
+                                                    print(f"🔄 500 Server Error - {wait_time}s bekleniyor...")
+                                                    time.sleep(wait_time)
+                                                    if retry_count >= max_retries:
+                                                        print(f"❌ Batch {batch_count} tüm denemeler başarısız, atlanıyor...")
+                                                        break
+                                                    continue
+                                                
+                                                # XML parsing hatası için agresif küçültme
+                                                if "not well-formed" in error_msg or "invalid token" in error_msg:
+                                                    print(f"🔧 XML parsing hatası tespit edildi, batch boyutu agresif küçültülüyor...")
+                                                    current_batch_size = max(1, current_batch_size // 4)  # 1/4'e indir
+                                                    print(f"📦 Yeni batch boyutu: {current_batch_size}")
+                                                
+                                                if retry_count >= max_retries:
+                                                    print(f"❌ Batch {batch_count} tüm denemeler başarısız, atlanıyor...")
+                                                    break
+                                                time.sleep(3)
+                                        if not batch_data or len(batch_data) == 0:
+                                            print(f"✅ Batch {batch_count}: Veri bitti!")
+                                            break
+                                        try:
+                                            # Duplicate kontrolü kaldırıldı - direkt ekle
+                                            if batch_data:
+                                                all_data.extend(batch_data)
+                                            error_count = 0
+                                            current_batch_size = original_batch_size  # Reset batch size
+                                            if len(batch_data) < current_batch_size:
+                                                print(f"✅ Son batch tamamlandı!")
+                                                break
+                                            offset += current_batch_size
+                                        except Exception as e:
+                                            error_count += 1
+                                            print(f"❌ Batch {batch_count} HATASI: {str(e)[:200]}")
+                                            print(f"🔍 Hata detayı: Domain={special_domain}, BatchSize={current_batch_size}, Offset={offset}")
+                                            if error_count >= max_errors:
+                                                print(f"❌ Çok fazla hata ({max_errors}), durduruluyor...")
+                                                break
+                                            time.sleep(5)
+                                            offset += current_batch_size
+                                        continue
+                                
+                                print(f"\n✅ TOPLAM {len(all_data)} fatura satırı çekildi (XML-RPC)!")
+                                print(f"📊 Veri boyutu: ~{len(all_data) * 0.5 / 1024:.2f} MB")
+                                
+                                # EUR ve USD currency'lerini bul (EUR faturalar için kur hesaplama)
+                                print(f"\n💱 EUR ve USD currency'leri bulunuyor...")
+                                eur_currency = []
+                                usd_currency = []
+                                try:
+                                    # EUR currency'yi bul
+                                    eur_currency = models.execute_kw(
+                                        db, uid_xmlrpc, password,
+                                        'res.currency', 'search_read',
+                                        [[('name', '=', 'EUR')]],
+                                        {'fields': ['id', 'name'], 'limit': 1}
+                                    )
+                                    if eur_currency and len(eur_currency) > 0:
+                                        print(f"✅ EUR currency bulundu: ID {eur_currency[0]['id']}")
+                                    else:
+                                        print(f"⚠️ EUR currency bulunamadı!")
+                                    
+                                    # USD currency'yi bul
+                                    usd_currency = models.execute_kw(
+                                        db, uid_xmlrpc, password,
+                                        'res.currency', 'search_read',
+                                        [[('name', '=', 'USD')]],
+                                        {'fields': ['id', 'name'], 'limit': 1}
+                                    )
+                                    if usd_currency and len(usd_currency) > 0:
+                                        print(f"✅ USD currency bulundu: ID {usd_currency[0]['id']}")
+                                    else:
+                                        print(f"⚠️ USD currency bulunamadı!")
+                                except Exception as e:
+                                    print(f"⚠️ Currency bulma hatası: {e}")
+                                
+                                # HİBRİT YÖNTEM: USD tutarları VE ŞEHİR bilgisini account.invoice.report'tan çek
+                                print(f"\n💰 USD tutarları ve şehir bilgisi account.invoice.report'tan çekiliyor (HİBRİT YÖNTEM)...")
+                                
+                                # move.line ID'lerini topla
+                                line_ids = [line.get('id') for line in all_data if line.get('id')]
+                                print(f"📦 {len(line_ids)} satır için USD tutar ve şehir çekilecek...")
+                                
+                                usd_amount_map = {}
+                                state_id_map = {}  # Şehir bilgisi için yeni map
+                                usd_rate_map = {}  # KUR bilgisi için yeni map
+                                try:
+                                    # account.invoice.report'tan USD tutarlarını, state_id ve usd_rate'i batch olarak çek
+                                    # Retry mekanizması eklendi (502 Bad Gateway hatalarını önlemek için)
+                                    usd_batch_size = 5000  # 10000'den 5000'e düşürüldü (502 hatalarını önlemek için)
+                                    max_retries = 3
+                                    retry_delay = 2
+                                    
+                                    for i in range(0, len(line_ids), usd_batch_size):
+                                        batch_ids = line_ids[i:i+usd_batch_size]
+                                        batch_num = i//usd_batch_size + 1
+                                        total_batches = (len(line_ids) + usd_batch_size - 1) // usd_batch_size
+                                        
+                                        # Log azaltıldı (sadece her 5 batch'te)
+                                        if (i // usd_batch_size) % 5 == 0:
+                                            print(f"   💵 USD batch {batch_num}/{total_batches}: {len(batch_ids)} kayıt...")
+                                        
+                                        batch_success = False
+                                        retry_count = 0
+                                        
+                                        while not batch_success and retry_count < max_retries:
+                                            try:
+                                                # account.invoice.report'tan price_usd_subtotal, state_id ve usd_rate çek
+                                                usd_batch = models.execute_kw(
+                                                    db, uid_xmlrpc, password,
+                                                    'account.invoice.report', 'search_read',
+                                                    [[('id', 'in', batch_ids)]],
+                                                    {'fields': ['id', 'price_usd_subtotal', 'state_id', 'usd_rate']}
+                                                )
+                                                
+                                                # Başarılı - verileri işle
+                                                for usd_record in usd_batch:
+                                                    line_id = usd_record.get('id')
+                                                    usd_subtotal = usd_record.get('price_usd_subtotal', 0)
+                                                    state_id = usd_record.get('state_id')
+                                                    usd_rate = usd_record.get('usd_rate', 0)
+                                                    
+                                                    usd_amount_map[line_id] = float(usd_subtotal) if usd_subtotal else 0
+                                                    
+                                                    # state_id'yi şehir adına çevir
+                                                    if state_id and isinstance(state_id, list) and len(state_id) > 1:
+                                                        state_id_map[line_id] = state_id[1]  # [id, name] formatında geliyor
+                                                    else:
+                                                        state_id_map[line_id] = 'Bilinmeyen'
+                                                    
+                                                    # usd_rate'i kaydet
+                                                    if usd_rate and float(usd_rate) > 0:
+                                                        usd_rate_map[line_id] = float(usd_rate)
+                                                
+                                                batch_success = True
+                                                
+                                            except Exception as batch_error:
+                                                retry_count += 1
+                                                error_msg = str(batch_error)[:300]
+                                                
+                                                if retry_count < max_retries:
+                                                    print(f"   ⚠️ USD batch {batch_num} hatası (Deneme {retry_count}/{max_retries}): {error_msg}...")
+                                                    print(f"   ⏳ {retry_delay} saniye bekleniyor...")
+                                                    from time import sleep
+                                                    sleep(retry_delay)
+                                                else:
+                                                    print(f"   ❌ USD batch {batch_num} başarısız: {len(batch_ids)} kayıt atlandı")
+                                                    print(f"   Hata: {error_msg}")
+                                                    # Bu batch atlanıyor ama diğer batch'ler çalışmaya devam edecek
+                                                    batch_success = True  # Loop'u bitir, bir sonraki batch'e geç
+                                    
+                                    print(f"✅ {len(usd_amount_map)} satır için USD tutar eşleştirildi!")
+                                    print(f"✅ {len(state_id_map)} satır için şehir bilgisi eşleştirildi!")
+                                    print(f"✅ {len(usd_rate_map)} satır için KUR bilgisi eşleştirildi!")
+                                    
+                                    # İstatistik
+                                    with_usd = sum(1 for v in usd_amount_map.values() if v != 0)
+                                    total_usd = sum(usd_amount_map.values())
+                                    with_city = sum(1 for c in state_id_map.values() if c != 'Bilinmeyen')
+                                    with_rate = len(usd_rate_map)
+                                    print(f"   💰 USD olan: {with_usd}")
+                                    print(f"   💵 Toplam USD: ${total_usd:,.2f}")
+                                    print(f"   🏙️ Şehir bilgisi olan: {with_city}")
+                                    print(f"   💱 KUR bilgisi olan: {with_rate}")
+                                    
+                                except Exception as e:
+                                    print(f"⚠️ USD tutar + şehir + kur çekme hatası: {e}")
+                                    print(f"⚠️ Fallback: account.move'dan currency_rate çekilecek")
+                                    usd_amount_map = {}
+                                    state_id_map = {}
+                                    usd_rate_map = {}
+                                
+                                # Satış temsilcileri ve KUR bilgilerini çek (account.move'dan)
+                                print(f"\n👤 Satış temsilcileri ve KUR bilgileri çekiliyor...")
+                                move_ids = list(set([line.get('move_id')[0] for line in all_data if line.get('move_id') and isinstance(line.get('move_id'), list)]))
+                                print(f"📦 {len(move_ids)} fatura başlığı için satış temsilcisi ve kur çekiliyor (10000'erlik batch)...")
+                                
+                                invoice_user_map = {}
+                                invoice_datetime_map = {}  # Fatura kesilme zamanı (saat için)
+                                invoice_date_map = {}  # Gerçek fatura tarihi
+                                move_type_map = {}  # Fatura tipi (iade kontrolü için)
+                                invoice_currency_rate_map = {}  # Fatura kuru (USD hesabı için)
+                                
+                                # Batch size küçültüldü ve her batch için ayrı try-except (daha güvenli)
+                                move_batch_size = 5000  # 10000'den 5000'e düşürüldü
+                                max_retries = 3
+                                retry_delay = 2
+                                
+                                for i in range(0, len(move_ids), move_batch_size):
+                                    batch_ids = move_ids[i:i+move_batch_size]
+                                    batch_num = i//move_batch_size + 1
+                                    total_batches = (len(move_ids) + move_batch_size - 1) // move_batch_size
+                                    
+                                    batch_success = False
+                                    retry_count = 0
+                                    
+                                    while not batch_success and retry_count < max_retries:
+                                        try:
+                                            print(f"   📦 Fatura batch {batch_num}/{total_batches}: {len(batch_ids)} fatura...")
+                                            
+                                            # Field'lar: pricelist_id kaldırıldı (Odoo'da yok)
+                                            fields_to_use = ['id', 'invoice_user_id', 'user_id', 'create_date', 'invoice_date', 'move_type', 'currency_rate', 'amount_total', 'amount_total_signed']
+                                            
+                                            batch_moves = models.execute_kw(
+                                                db, uid_xmlrpc, password,
+                                                'account.move', 'search_read',
+                                                [[('id', 'in', batch_ids)]],
+                                                {'fields': fields_to_use}
+                                            )
+                                            
+                                            # Başarılı - verileri işle
+                                            for move in batch_moves:
+                                                move_id = move['id']
+                                                
+                                                # Satış temsilcisi
+                                                if move.get('invoice_user_id') and isinstance(move.get('invoice_user_id'), list):
+                                                    invoice_user_map[move_id] = move['invoice_user_id'][1]
+                                                elif move.get('user_id') and isinstance(move.get('user_id'), list):
+                                                    invoice_user_map[move_id] = move['user_id'][1]
+                                                else:
+                                                    invoice_user_map[move_id] = 'Sistem'
+                                                
+                                                # Fatura kesilme zamanı (tarih + saat)
+                                                if move.get('create_date'):
+                                                    invoice_datetime_map[move_id] = move['create_date']
+                                                
+                                                # Gerçek fatura tarihi
+                                                if move.get('invoice_date'):
+                                                    invoice_date_map[move_id] = move['invoice_date']
+                                                
+                                                # Fatura tipi (iade kontrolü için)
+                                                if move.get('move_type'):
+                                                    move_type_map[move_id] = move['move_type']
+                                                
+                                                # KUR bilgisi (USD hesabı için)
+                                                if move.get('currency_rate'):
+                                                    invoice_currency_rate_map[move_id] = float(move['currency_rate'])
+                                            
+                                            batch_success = True
+                                            
+                                        except Exception as batch_error:
+                                            retry_count += 1
+                                            error_msg = str(batch_error)[:300]
+                                            
+                                            if retry_count < max_retries:
+                                                print(f"   ⚠️ Batch {batch_num} hatası (Deneme {retry_count}/{max_retries}): {error_msg}...")
+                                                print(f"   ⏳ {retry_delay} saniye bekleniyor...")
+                                                from time import sleep
+                                                sleep(retry_delay)
+                                            else:
+                                                print(f"   ❌ Batch {batch_num} başarısız: {len(batch_ids)} fatura atlandı")
+                                                print(f"   Hata: {error_msg}")
+                                                # Bu batch atlanıyor ama diğer batch'ler çalışmaya devam edecek
+                                                batch_success = True  # Loop'u bitir, bir sonraki batch'e geç
+                                
+                                print(f"✅ {len(invoice_user_map)} fatura için satış temsilcisi eşleştirildi!")
+                                print(f"✅ {len(invoice_datetime_map)} fatura için tarih-saat bilgisi alındı!")
+                                print(f"✅ {len(invoice_date_map)} fatura için gerçek tarih alındı!")
+                                print(f"✅ {len(move_type_map)} fatura için tip bilgisi alındı!")
+                                print(f"✅ {len(invoice_currency_rate_map)} fatura için KUR bilgisi alındı!")
+                                
+                            except Exception as e:
+                                print(f"❌ XML-RPC veri çekme hatası: {e}")
+                                all_data = None
+                        else:
+                            all_data = None
+                        
+                        if all_data and len(all_data) > 0:
+                            
+                            # Verileri işle ve JSON oluştur
+                            print("\n2️⃣ Veriler işleniyor ve kategorilere ayrılıyor...")
+                            
+                            processed_data = {
+                                'categories': {},
+                                'products': {},
+                                'partners': {},
+                                'sales_persons': {},
+                                'cities': {},
+                                'stores': {},  # Mağaza bilgisi (analytic_account)
+                                'years': {},
+                                'months': {},
+                                'raw_count': len(all_data),
+                                'last_update': datetime.now().isoformat()
+                            }
+                            
+                            # Önce ürün kategorilerini ve partner şehirlerini çek (XML-RPC)
+                            print("📦 Ürün kategorileri çekiliyor (Hiyerarşik - XML-RPC)...")
+                            
+                            product_ids = list(set([line.get('product_id')[0] for line in all_data if line.get('product_id') and isinstance(line.get('product_id'), list)]))
+                            partner_ids = list(set([line.get('partner_id')[0] for line in all_data if line.get('partner_id') and isinstance(line.get('partner_id'), list)]))
+                            
+                            product_categ_map = {}
+                            product_brand_map = {}
+                            product_type_map = {}  # Ürün tipi map'i (service/product/consu)
+                            product_detailed_type_map = {}  # Ürün detailed_type map'i
+                            product_list_price_map = {}  # Ürün list_price map'i (indirim hesaplama için)
+                            category_hierarchy = {}
+                            partner_city_map = {}  # İL bilgisi (state_id)
+                            partner_district_map = {}  # İLÇE bilgisi (city)
+                            partner_tags_map = {}
+                            
+                            if product_ids and models:  # TÜM ÜRÜNLER
+                                try:
+                                    # Ürünleri BATCH çek - TÜM ÜRÜNLER (kategori + marka)
+                                    product_batch_size = 10000
+                                    print(f"📦 {len(product_ids)} ürün çekiliyor (10000'erlik batch)...")
+                                    products = []
+                                    for i in range(0, len(product_ids), product_batch_size):
+                                        batch_ids = product_ids[i:i+product_batch_size]
+                                        print(f"   📦 Ürün batch {i//product_batch_size + 1}: {len(batch_ids)} ürün...")
+                                        batch_products = models.execute_kw(
+                                            db, uid_xmlrpc, password,
+                                            'product.product', 'search_read',
+                                            [[('id', 'in', batch_ids)]],
+                                            {'fields': ['id', 'categ_id', 'product_brand_id', 'product_tmpl_id', 'type', 'detailed_type', 'list_price'], 'context': {'active_test': False}}
+                                        )
+                                        products.extend(batch_products)
+                                    print(f"✅ Toplam {len(products)} ürün çekildi!")
+                                    
+                                    # Kategori ID'lerini topla
+                                    categ_ids = list(set([prod['categ_id'][0] for prod in products if prod.get('categ_id') and isinstance(prod.get('categ_id'), list)]))
+                                    
+                                    # Tüm kategorileri çek (parent bilgisiyle)
+                                    print(f"📂 {len(categ_ids)} kategori detayı çekiliyor...")
+                                    categories = models.execute_kw(
+                                        db, uid_xmlrpc, password,
+                                        'product.category', 'search_read',
+                                        [[('id', 'in', categ_ids)]],
+                                        {'fields': ['id', 'name', 'parent_id', 'complete_name']}
+                                    )
+                                    
+                                    # Kategori hiyerarşisini oluştur (5 seviyeye kadar)
+                                    for cat in categories:
+                                        cat_id = cat['id']
+                                        cat_name = cat.get('complete_name') or cat.get('name')
+                                        parent_name = cat['parent_id'][1] if cat.get('parent_id') and isinstance(cat.get('parent_id'), list) else None
+                                        
+                                        # Kategori yolunu parçala (örn: "Müzik / Gitarlar / Elektro" -> ["Müzik", "Gitarlar", "Elektro"])
+                                        cat_levels = cat_name.split(' / ') if ' / ' in cat_name else [cat_name]
+                                        
+                                        category_hierarchy[cat_id] = {
+                                            'name': cat_name,
+                                            'parent': parent_name,
+                                            'full_path': cat_name,
+                                            'level1': cat_levels[0] if len(cat_levels) > 0 else '',
+                                            'level2': cat_levels[1] if len(cat_levels) > 1 else '',
+                                            'level3': cat_levels[2] if len(cat_levels) > 2 else '',
+                                            'level4': cat_levels[3] if len(cat_levels) > 3 else '',
+                                            'level5': cat_levels[4] if len(cat_levels) > 4 else ''
+                                        }
+                                    
+                                    # Ürün-kategori ve marka eşleştirmesi
+                                    product_brand_map = {}
+                                    for prod in products:
+                                        prod_id = prod['id']
+                                        
+                                        # Ürün tipi (service/product/consu) - Hem type hem detailed_type kontrol et
+                                        product_type = prod.get('type', '') or prod.get('detailed_type', '')
+                                        product_type_map[prod_id] = product_type
+                                        product_detailed_type_map[prod_id] = prod.get('detailed_type', '') or prod.get('type', '')
+                                        
+                                        # Kategori
+                                        categ = prod.get('categ_id')
+                                        if categ and isinstance(categ, list) and len(categ) > 0:
+                                            cat_id = categ[0]
+                                            if cat_id in category_hierarchy:
+                                                product_categ_map[prod_id] = category_hierarchy[cat_id]['full_path']
+                                            else:
+                                                product_categ_map[prod_id] = categ[1] if len(categ) > 1 else 'Diğer'
+                                        else:
+                                            product_categ_map[prod_id] = 'Diğer'
+                                        
+                                        # Marka
+                                        brand = None
+                                        if prod.get('product_brand_id') and isinstance(prod.get('product_brand_id'), list):
+                                            brand = prod['product_brand_id'][1]
+                                        
+                                        product_brand_map[prod_id] = brand if brand else 'Bilinmeyen'
+                                        
+                                        # List Price (indirim hesaplama için)
+                                        list_price = float(prod.get('list_price', 0))
+                                        product_list_price_map[prod_id] = list_price
+                                    
+                                    print(f"✅ {len(product_categ_map)} ürün kategorisi eşleştirildi (XML-RPC)")
+                                    print(f"✅ {len(product_brand_map)} ürün markası eşleştirildi")
+                                    print(f"✅ {len(category_hierarchy)} kategori hiyerarşisi oluşturuldu (5 seviye)!")
+                                    
+                                    # Kategori hiyerarşisini data'ya ekle
+                                    processed_data['category_hierarchy'] = category_hierarchy
+                                    
+                                except Exception as e:
+                                    print(f"⚠️ Ürün kategorisi çekme hatası: {e}")
+                                    category_hierarchy = {}
+                                    product_brand_map = {}
+                            
+                            # Partner şehir bilgilerini çek (XML-RPC) - HİBRİT YÖNTEM (state_id dahil) - TÜM PARTNER
+                            print(f"\n🏙️ Partner şehir bilgileri çekiliyor (TÜM PARTNER: {len(partner_ids)})...")
+                            if partner_ids and models:
+                                try:
+                                    # Partnerleri BATCH çek (10000'erlik)
+                                    partner_batch_size = 10000
+                                    print(f"📦 {len(partner_ids)} partner çekiliyor (10000'erlik batch)...")
+                                    partners = []
+                                    for i in range(0, len(partner_ids), partner_batch_size):
+                                        batch_ids = partner_ids[i:i+partner_batch_size]
+                                        print(f"   📦 Partner batch {i//partner_batch_size + 1}: {len(batch_ids)} partner...")
+                                        batch_partners = models.execute_kw(
+                                            db, uid_xmlrpc, password,
+                                            'res.partner', 'search_read',
+                                            [[('id', 'in', batch_ids)]],
+                                            {'fields': ['id', 'name', 'city', 'state_id']}
+                                        )
+                                        partners.extend(batch_partners)
+                                    print(f"✅ Toplam {len(partners)} partner çekildi!")
+                                    
+                                    # Şehir listesi (partner adından çıkarmak için)
+                                    city_keywords = [
+                                        'İstanbul', 'Ankara', 'İzmir', 'Antalya', 'Bursa', 'Adana', 
+                                        'Konya', 'Gaziantep', 'Şanlıurfa', 'Kocaeli', 'Mersin', 
+                                        'Diyarbakır', 'Hatay', 'Manisa', 'Kayseri', 'Samsun',
+                                        'Balıkesir', 'Kahramanmaraş', 'Van', 'Aydın', 'Denizli',
+                                        'Sakarya', 'Tekirdağ', 'Muğla', 'Eskişehir', 'Mardin',
+                                        'Malatya', 'Erzurum', 'Trabzon', 'Elazığ', 'Ordu',
+                                        'Çorum', 'Afyonkarahisar', 'Sivas', 'Tokat', 'Giresun',
+                                        'Aksaray', 'Niğde', 'Nevşehir', 'Kırıkkale', 'Kırşehir',
+                                        'Bodrum', 'Tünel', 'Hilltown', 'Uniq', 'Akasya', 'Kanyon',
+                                        'Zorlu', 'Emaar', 'Marmara', 'Optimum', 'Capacity', 'Forum',
+                                        'Cevahir', 'Metropol', 'Palladium', 'Galleria', 'Mall of'
+                                    ]
+                                    
+                                    for partner in partners:
+                                        partner_id = partner['id']
+                                        partner_name = partner.get('name', '')
+                                        city_field = partner.get('city', '').strip()
+                                        state_field = partner.get('state_id')
+                                        
+                                        # İLÇE bilgisi (city alanından)
+                                        if city_field and city_field != '':
+                                            partner_district_map[partner_id] = city_field
+                                        else:
+                                            partner_district_map[partner_id] = ''
+                                        
+                                        # İL bilgisi (state_id'den)
+                                        # 1. Önce state_id'den (İl/Bölge bilgisi - en doğru)
+                                        if state_field and isinstance(state_field, list) and len(state_field) > 1:
+                                            partner_city_map[partner_id] = state_field[1]  # [id, name]
+                                        # 2. Sonra city alanından
+                                        elif city_field and city_field != '':
+                                            partner_city_map[partner_id] = city_field
+                                        else:
+                                            # 3. Partner adından şehir çıkar
+                                            found_city = None
+                                            for city in city_keywords:
+                                                if city.lower() in partner_name.lower():
+                                                    found_city = city
+                                                    break
+                                            
+                                            partner_city_map[partner_id] = found_city if found_city else 'Bilinmeyen'
+                                    
+                                    # İstatistik
+                                    with_city = sum(1 for c in partner_city_map.values() if c != 'Bilinmeyen')
+                                    print(f"✅ {len(partner_city_map)} partner işlendi!")
+                                    print(f"   📍 Şehir bilgisi olan: {with_city}")
+                                    print(f"   ❓ Bilinmeyen şehir: {len(partner_city_map) - with_city}")
+                                    
+                                except Exception as e:
+                                    print(f"⚠️ Partner şehir bilgisi çekme hatası: {e}")
+                                    partner_city_map = {}
+                                    partner_tags_map = {}
+                            
+                            # Detay kayıtları için liste
+                            # Duplicate kontrolü kaldırıldı - all_data direkt kullanılıyor
+                            print(f"✅ Veri hazır: {len(all_data)} kayıt")
+                            
+                            details = []
+                            
+                            # İade faturaları istatistikleri
+                            refund_count = 0
+                            refund_total_usd = 0
+                            invoice_count = 0
+                            invoice_total_usd = 0
+                            # İndirim ve hizmet istatistikleri
+                            discount_count = 0
+                            discount_total_usd = 0
+                            service_count = 0
+                            service_total_usd = 0
+                            
+                            # İşleme sayacı (debug için)
+                            processed_count = 0
+                            
+                            for line in all_data:
+                                try:
+                                    processed_count += 1
+                                    
+                                    # Hata yakalama için line ID'yi al
+                                    line_id_for_error = line.get('id', 'unknown')
+                                    
+                                    # ÖNCE move bilgisini al
+                                    move = line.get('move_id')
+                                    move_id = move[0] if isinstance(move, list) else 0
+                                    move_name = move[1] if isinstance(move, list) and len(move) > 1 else ''
+                                    
+                                    # İADE KONTROLÜ: 
+                                    # Format: RMRKZ/2024/00053 (EFT2024000000163)
+                                    # İADE FATURALARI DAİMA "R" ile başlar!
+                                    is_refund = False
+                                    if move_name and move_name.upper().startswith('R'):
+                                        is_refund = True
+                                    
+                                    # Ek kontrol: move_type de kontrol et (çift güvenlik)
+                                    move_type = move_type_map.get(move_id, '')
+                                    if move_type == 'out_refund':
+                                        is_refund = True
+                                    
+                                    # Ürün
+                                    product = line.get('product_id')
+                                    product_name = product[1] if isinstance(product, list) and len(product) > 1 else 'Bilinmeyen'
+                                    product_id = product[0] if isinstance(product, list) else 0
+                                    
+                                    # İNDİRİM KONTROLÜ: İndirim ürünleri negatif olarak işaretlenecek
+                                    # İndirim ifadesi geçiyorsa VEYA Odoo'dan negatif değer geliyorsa → negatif işaretle
+                                    is_discount = False
+                                    has_discount_text = product_name and ('indirim' in product_name.lower() or 'ücretsiz ürün' in product_name.lower())
+                                    if has_discount_text:
+                                        is_discount = True
+                                    
+                                    # HİZMET KONTROLÜ: Hizmet ürünleri negatif olarak işaretlenecek
+                                    is_service = False
+                                    product_type = product_type_map.get(product_id, '')
+                                    product_detailed_type = product_detailed_type_map.get(product_id, '')
+                                    if (product_type and product_type.lower() == 'service') or (product_detailed_type and product_detailed_type.lower() == 'service'):
+                                        is_service = True
+                                    
+                                    # Tarih - ODOO FİLTRESİ İLE UYUMLU
+                                    # Odoo filtresi account.move.line.date kullanıyor, bu yüzden sadece line.date kullanıyoruz
+                                    # invoice_date kullanmıyoruz çünkü filtre ile uyumsuz (yıl tutarsızlığına neden oluyor)
+                                    date_str = line.get('date', '')
+                                    if date_str:
+                                        year = date_str[:4]
+                                        month = date_str[:7]
+                                    else:
+                                        year = 'Bilinmeyen'
+                                        month = 'Bilinmeyen'
+                                    
+                                    # Saat bilgisi - account.move'dan create_date (FATURA KESİLME ZAMANI)
+                                    create_hour = 0
+                                    create_day_of_week = 0
+                                    
+                                    create_date_str = invoice_datetime_map.get(move_id, '')
+                                    if create_date_str:
+                                        try:
+                                            # Format: '2025-10-15 14:35:22'
+                                            from datetime import datetime
+                                            dt = datetime.strptime(create_date_str, '%Y-%m-%d %H:%M:%S')
+                                            create_hour = dt.hour
+                                            create_day_of_week = dt.weekday()  # 0=Pazartesi, 6=Pazar
+                                        except:
+                                            pass
+                                    
+                                    # Kategori (ürün map'inden)
+                                    categ_name = product_categ_map.get(product_id, 'Diğer')
+                                    
+                                    # Müşteri/Mağaza
+                                    partner = line.get('partner_id')
+                                    partner_name = partner[1] if isinstance(partner, list) and len(partner) > 1 else 'Bilinmeyen'
+                                    partner_id = partner[0] if isinstance(partner, list) else 0
+                                    
+                                    # Şehir ve İlçe bilgilerini al
+                                    line_id = line.get('id')
+                                    
+                                    # HİBRİT ŞEHIR: 1. state_id (en doğru) → 2. partner city → 3. Bilinmeyen
+                                    city = state_id_map.get(line_id) or partner_city_map.get(partner_id, 'Bilinmeyen')
+                                    partner_district = partner_district_map.get(partner_id, '')  # İLÇE (res.partner.city)
+                                    
+                                    # Mağaza - analytic_account_id'den
+                                    analytic_account = line.get('analytic_account_id')
+                                    store_name = analytic_account[1] if isinstance(analytic_account, list) and len(analytic_account) > 1 else 'Genel'
+                                    
+                                    # Satış temsilcisi - invoice_user_map'ten al
+                                    move_id_value = line.get('move_id')
+                                    move_id_int = move_id_value[0] if isinstance(move_id_value, list) else 0
+                                    user_name = invoice_user_map.get(move_id_int, 'Sistem')
+                                    
+                                    # Sayısal değerler - ORİJİNAL DEĞERLERİ AL (abs() almadan)
+                                    original_qty = float(line.get('quantity', 0))
+                                    original_price_subtotal = float(line.get('price_subtotal', 0))
+                                    
+                                    # ODOO'DAN NEGATİF DEĞER KONTROLÜ
+                                    is_negative_from_odoo = (original_qty < 0) or (original_price_subtotal < 0)
+                                    
+                                    qty = abs(original_qty)  # İşaret kontrolü için abs() al
+                                    
+                                    # USD tutar - HİBRİT YÖNTEM (5 Katmanlı Fallback - Currency Öncelikli)
+                                    line_id = line.get('id')
+                                    price_subtotal = abs(original_price_subtotal)  # Tutar (mutlak değer)
+                                    
+                                    # ÖNCELİK 1: Currency kontrolü (USD/EUR/TL fatura mı?)
+                                    currency = line.get('currency_id')
+                                    currency_code = currency[1] if isinstance(currency, list) and len(currency) > 1 else ''
+                                    
+                                    if 'USD' in currency_code.upper():
+                                        # USD FATURA - Kura bölme! Direkt al
+                                        usd_amount = price_subtotal
+                                        print(f"      💵 USD Fatura tespit edildi: {move_name} - ${usd_amount:.2f}")
+                                    elif 'EUR' in currency_code.upper():
+                                        # EUR FATURA - USD faturalar gibi tespit et, sonra fatura tarihindeki kurları kullan
+                                        # 1. Fatura tarihini al
+                                        invoice_date = date_str  # Fatura tarihi (YYYY-MM-DD formatında)
+                                        
+                                        # 2. Fatura tarihindeki EUR/TRY ve USD/TRY kurlarını bul (res.currency.rate tablosundan)
+                                        eur_usd_rate_for_invoice = None
+                                        
+                                        try:
+                                            # EUR/TRY kuru (fatura tarihinde) - res.currency.rate tablosundan
+                                            eur_rates_for_date = []
+                                            if eur_currency and len(eur_currency) > 0:
+                                                eur_rates_for_date = models.execute_kw(
+                                                    db, uid_xmlrpc, password,
+                                                    'res.currency.rate', 'search_read',
+                                                    [
+                                                        [
+                                                            ('currency_id', '=', eur_currency[0]['id']),
+                                                            ('name', '<=', invoice_date)
+                                                        ]
+                                                    ],
+                                                    {
+                                                        'fields': ['name', 'rate', 'currency_id'],
+                                                        'order': 'name desc',
+                                                        'limit': 1
+                                                    }
+                                                )
+                                            
+                                            # USD/TRY kuru (fatura tarihinde) - res.currency.rate tablosundan
+                                            usd_rates_for_date = []
+                                            if usd_currency and len(usd_currency) > 0:
+                                                usd_rates_for_date = models.execute_kw(
+                                                    db, uid_xmlrpc, password,
+                                                    'res.currency.rate', 'search_read',
+                                                    [
+                                                        [
+                                                            ('currency_id', '=', usd_currency[0]['id']),
+                                                            ('name', '<=', invoice_date)
+                                                        ]
+                                                    ],
+                                                    {
+                                                        'fields': ['name', 'rate', 'currency_id'],
+                                                        'order': 'name desc',
+                                                        'limit': 1
+                                                    }
+                                                )
+                                            
+                                            # Parite hesapla: EUR/USD = (EUR/TRY) / (USD/TRY)
+                                            if eur_rates_for_date and len(eur_rates_for_date) > 0 and usd_rates_for_date and len(usd_rates_for_date) > 0:
+                                                # Odoo'da rate değeri: 1 base_currency = rate * currency
+                                                # Base currency genellikle TRY, yani rate = 1 TRY = X EUR veya 1 TRY = X USD
+                                                # Bu durumda: 1 EUR = 1/rate_EUR TRY ve 1 USD = 1/rate_USD TRY
+                                                eur_rate_value = float(eur_rates_for_date[0].get('rate', 0))
+                                                usd_rate_value = float(usd_rates_for_date[0].get('rate', 0))
+                                                
+                                                if eur_rate_value > 0 and usd_rate_value > 0:
+                                                    # Ters kurlar: 1 EUR = X TRY ve 1 USD = Y TRY
+                                                    eur_try_rate = 1.0 / eur_rate_value  # 1 EUR = X TRY
+                                                    usd_try_rate = 1.0 / usd_rate_value  # 1 USD = Y TRY
+                                                    
+                                                    # EUR/USD paritesi: (EUR/TRY) / (USD/TRY)
+                                                    eur_usd_rate_for_invoice = eur_try_rate / usd_try_rate
+                                                    
+                                                    # USD'ye çevir
+                                                    usd_amount = price_subtotal * eur_usd_rate_for_invoice
+                                                    print(f"      💶 EUR Fatura tespit edildi: {move_name} - €{price_subtotal:.2f} = ${usd_amount:.2f} (Tarih: {invoice_date}, Kur: {eur_usd_rate_for_invoice:.4f})")
+                                                else:
+                                                    # Fallback: Ortalama EUR/USD kuru
+                                                    usd_amount = price_subtotal * 1.08
+                                                    print(f"      ⚠️ EUR Fatura (tarih kurları hesaplanamadı, ortalama kullanıldı): {move_name} - €{price_subtotal:.2f} = ${usd_amount:.2f}")
+                                            else:
+                                                # Fallback: Ortalama EUR/USD kuru
+                                                usd_amount = price_subtotal * 1.08
+                                                print(f"      ⚠️ EUR Fatura (tarih kurları bulunamadı, ortalama kullanıldı): {move_name} - €{price_subtotal:.2f} = ${usd_amount:.2f}")
+                                        except Exception as e:
+                                            # Fallback: Ortalama EUR/USD kuru
+                                            usd_amount = price_subtotal * 1.08
+                                            print(f"      ⚠️ EUR Fatura (hata, ortalama kullanıldı): {move_name} - €{price_subtotal:.2f} = ${usd_amount:.2f}, Hata: {str(e)[:100]}")
+                                    # ÖNCELİK 2: TL fatura için usd_rate kullan
+                                    elif line_id in usd_rate_map and usd_rate_map[line_id] > 0:
+                                        # Satır bazında kur varsa kullan (en doğru!)
+                                        usd_rate = usd_rate_map[line_id]
+                                        usd_amount = price_subtotal / usd_rate
+                                    elif line_id in usd_amount_map and usd_amount_map[line_id] != 0:
+                                        # Doğrudan USD tutarı varsa kullan
+                                        usd_amount = abs(usd_amount_map[line_id])
+                                    # ÖNCELİK 3: account.move'dan fatura kuru
+                                    elif move_id in invoice_currency_rate_map and invoice_currency_rate_map[move_id] > 0:
+                                        currency_rate = invoice_currency_rate_map[move_id]
+                                        usd_amount = price_subtotal / currency_rate
+                                    # SON ÇARE: Ortalama kur
+                                    else:
+                                        # Son çare: ortalama kur (TL için)
+                                        usd_amount = price_subtotal / 34.5
+                                    
+                                    # HER ZAMAN POZİTİF OLARAK AL (move_type'a göre sonra işaret belirleyeceğiz)
+                                    usd_amount = abs(usd_amount)
+                                    qty = abs(qty)
+                                    
+                                    # İADE, İNDİRİM VE HİZMET İÇİN İŞARET KONTROLÜ
+                                    # NOT: İndirim/ücretsiz/hizmet/negatif satırları istatistiklere eklenir ama sayfada gösterilmez
+                                    should_skip_display = False  # Sayfada gösterilip gösterilmeyeceğini belirler
+                                    
+                                    if is_refund:
+                                        # İstatistik
+                                        refund_count += 1
+                                        refund_total_usd += abs(usd_amount)
+                                        
+                                        # KRİTİK: İADE FATURALARI HER ZAMAN NEGATİF OLMALI!
+                                        # Yukarıda abs() aldık, şimdi negatif yap
+                                        usd_amount = -abs(usd_amount)
+                                        qty = -abs(qty)
+                                    elif is_discount or (is_negative_from_odoo and has_discount_text):
+                                        # İndirim istatistik: İndirim ifadesi geçiyorsa VEYA (negatif değer VAR VE indirim ifadesi VAR)
+                                        discount_count += 1
+                                        discount_total_usd += abs(usd_amount)
+                                        
+                                        # İNDİRİM ÜRÜNLERİ NEGATİF OLARAK İŞARETLENİR
+                                        # Yukarıda abs() aldık, şimdi negatif yap (iade mantığı ile aynı)
+                                        usd_amount = -abs(usd_amount)
+                                        qty = -abs(qty)
+                                        
+                                        # KRİTİK: İndirim/ücretsiz satırları sayfada GÖSTERİLMEZ (filtrelenir)
+                                        should_skip_display = True
+                                    elif is_service:
+                                        # SERVICE TİPİNDE ÜRÜNLER - HER ZAMAN NEGATİF OLARAK İŞARETLENİR
+                                        # İstatistik
+                                        service_count += 1
+                                        service_total_usd += abs(usd_amount)
+                                        
+                                        # KRİTİK: SERVICE ÜRÜNLERİ HER ZAMAN NEGATİF OLMALI (Odoo'dan negatif gelip gelmediğine bakılmaksızın)
+                                        # Yukarıda abs() aldık, şimdi negatif yap (iade mantığı ile aynı)
+                                        usd_amount = -abs(usd_amount)
+                                        qty = -abs(qty)
+                                        
+                                        # KRİTİK: Service tipinde satırlar sayfada GÖSTERİLMEZ (filtrelenir)
+                                        should_skip_display = True
+                                    elif is_negative_from_odoo:
+                                        # ODOO'DAN GELEN TÜM NEGATİF DEĞERLER (quantity < 0 veya price_subtotal < 0)
+                                        # İstatistik (negatif değerler için ayrı kategori)
+                                        discount_count += 1
+                                        discount_total_usd += abs(usd_amount)
+                                        
+                                        # ODOO'DAN GELEN NEGATİF DEĞERLER NEGATİF OLARAK İŞARETLENİR (iade gibi)
+                                        # Yukarıda abs() aldık, şimdi negatif yap (iade mantığı ile aynı)
+                                        usd_amount = -abs(usd_amount)
+                                        qty = -abs(qty)
+                                        
+                                        # KRİTİK: Odoo'dan negatif gelen tüm satırlar sayfada GÖSTERİLMEZ (filtrelenir)
+                                        should_skip_display = True
+                                    else:
+                                        # Normal satış faturaları için istatistik
+                                        invoice_count += 1
+                                        invoice_total_usd += usd_amount
+                                    
+                                    # İNDİRİM/ÜCRETSİZ/HİZMET/NEGATİF SATIRLARI SAYFADA GÖSTERME
+                                    # NOT: Bu satırlar artık continue ile atlanmıyor - negatif değerleri ile veri dosyasına ekleniyor
+                                    # Frontend'de is_service, is_discount veya should_skip_display kontrolü ile filtrelenebilir
+                                    # Ancak toplam hesaplamalarında negatif değerleri ile dahil edilir (net hesaplama için)
+                                    
+                                    # Kategori bazlı toplama - SADECE USD VE MİKTAR
+                                    if categ_name not in processed_data['categories']:
+                                        processed_data['categories'][categ_name] = {
+                                            'quantity': 0, 'usd_amount': 0, 'years': {}
+                                        }
+                                    
+                                    processed_data['categories'][categ_name]['quantity'] += qty
+                                    processed_data['categories'][categ_name]['usd_amount'] += usd_amount
+                                    
+                                    if year not in processed_data['categories'][categ_name]['years']:
+                                        processed_data['categories'][categ_name]['years'][year] = {
+                                            'quantity': 0, 'usd_amount': 0
+                                        }
+                                    
+                                    processed_data['categories'][categ_name]['years'][year]['quantity'] += qty
+                                    processed_data['categories'][categ_name]['years'][year]['usd_amount'] += usd_amount
+                                    
+                                    # Ürün bazlı - SADECE USD VE MİKTAR + MARKA + KATEGORİ SEVİYELERİ
+                                    if product_id not in processed_data['products']:
+                                        # Kategori seviyelerini al
+                                        cat_hierarchy = category_hierarchy.get(
+                                            [k for k, v in product_categ_map.items() if k == product_id][0] if product_id in product_categ_map else None
+                                        ) if product_id in product_categ_map else {}
+                                        
+                                        # Daha basit yöntem: product_id'den kategori bilgisini al
+                                        cat_info = {}
+                                        for cat_id, cat_data in category_hierarchy.items():
+                                            if product_categ_map.get(product_id) == cat_data.get('full_path'):
+                                                cat_info = cat_data
+                                                break
+                                        
+                                        processed_data['products'][product_id] = {
+                                            'name': product_name,
+                                            'category': categ_name,
+                                            'brand': product_brand_map.get(product_id, 'Bilinmeyen'),
+                                            'category_level1': cat_info.get('level1', ''),
+                                            'category_level2': cat_info.get('level2', ''),
+                                            'category_level3': cat_info.get('level3', ''),
+                                            'category_level4': cat_info.get('level4', ''),
+                                            'category_level5': cat_info.get('level5', ''),
+                                            'quantity': 0,
+                                            'usd_amount': 0
+                                        }
+                                    
+                                    processed_data['products'][product_id]['quantity'] += qty
+                                    processed_data['products'][product_id]['usd_amount'] += usd_amount
+                                    
+                                    # Müşteri/Mağaza bazlı - SADECE USD VE MİKTAR + ŞEHİR + İLÇE + ETİKETLER
+                                    if partner_id not in processed_data['partners']:
+                                        processed_data['partners'][partner_id] = {
+                                            'name': partner_name,
+                                            'city': partner_district,  # İLÇE (res.partner.city)
+                                            'partner_city': city,  # İL (state_id)
+                                            'quantity': 0,
+                                            'usd_amount': 0
+                                        }
+                                    
+                                    processed_data['partners'][partner_id]['quantity'] += qty
+                                    processed_data['partners'][partner_id]['usd_amount'] += usd_amount
+                                    
+                                    # Satış Temsilcisi bazlı - SADECE USD VE MİKTAR
+                                    if user_name not in processed_data['sales_persons']:
+                                        processed_data['sales_persons'][user_name] = {
+                                            'quantity': 0, 'usd_amount': 0
+                                        }
+                                    
+                                    processed_data['sales_persons'][user_name]['quantity'] += qty
+                                    processed_data['sales_persons'][user_name]['usd_amount'] += usd_amount
+                                    
+                                    # Şehir bazlı - SADECE USD VE MİKTAR
+                                    if city not in processed_data['cities']:
+                                        processed_data['cities'][city] = {
+                                            'quantity': 0, 'usd_amount': 0
+                                        }
+                                    
+                                    processed_data['cities'][city]['quantity'] += qty
+                                    processed_data['cities'][city]['usd_amount'] += usd_amount
+                                    
+                                    # Mağaza bazlı - SADECE USD VE MİKTAR
+                                    if store_name not in processed_data['stores']:
+                                        processed_data['stores'][store_name] = {
+                                            'quantity': 0, 'usd_amount': 0
+                                        }
+                                    
+                                    processed_data['stores'][store_name]['quantity'] += qty
+                                    processed_data['stores'][store_name]['usd_amount'] += usd_amount
+                                    
+                                    # Yıl bazlı - SADECE USD VE MİKTAR
+                                    if year not in processed_data['years']:
+                                        processed_data['years'][year] = {
+                                            'quantity': 0, 'usd_amount': 0
+                                        }
+                                    
+                                    processed_data['years'][year]['quantity'] += qty
+                                    processed_data['years'][year]['usd_amount'] += usd_amount
+                                    
+                                    # Ay bazlı - SADECE USD VE MİKTAR
+                                    if month not in processed_data['months']:
+                                        processed_data['months'][month] = {
+                                            'quantity': 0, 'usd_amount': 0
+                                        }
+                                    
+                                    processed_data['months'][month]['quantity'] += qty
+                                    processed_data['months'][month]['usd_amount'] += usd_amount
+                                    
+                                    # Detay kaydı ekle - HİBRİT YAKLAŞIM:
+                                    # Aggregated (partners, products, etc.) → Net değerler (satış - iade) ✅
+                                    # Details → Her satır ayrı (satış + iade görünür) ✅
+                                    cat_info = {}
+                                    for cat_id, cat_data in category_hierarchy.items():
+                                        if product_categ_map.get(product_id) == cat_data.get('full_path'):
+                                            cat_info = cat_data
+                                            break
+                                    
+                                    details.append({
+                                        'date': date_str,
+                                        'create_hour': create_hour,
+                                        'day_of_week': create_day_of_week,
+                                        'partner': partner_name,
+                                        'city': partner_district,  # İLÇE bilgisi (res.partner.city) - zaten yukarıda tanımlı
+                                        'partner_city': city,  # İL bilgisi (state_id) - zaten yukarıda tanımlı
+                                        'product_id': product_id,  # Odoo unique ID - envanter ile eşleştirme için
+                                        'product': product_name,
+                                        'brand': product_brand_map.get(product_id, 'Bilinmeyen'),
+                                        'category_1': cat_info.get('level1', ''),
+                                        'category_2': cat_info.get('level2', ''),
+                                        'category_3': cat_info.get('level3', ''),
+                                        'category_4': cat_info.get('level4', ''),
+                                        'sales_person': user_name,
+                                        'store': store_name,
+                                        'quantity': qty,  # Negatif olabilir (iade/indirim/hizmet)
+                                        'usd_amount': usd_amount,  # Negatif olabilir (iade/indirim/hizmet)
+                                        'is_refund': is_refund,  # İade mi değil mi?
+                                        'is_discount': is_discount,  # İndirim mi değil mi?
+                                        'is_service': is_service,  # Hizmet mi değil mi?
+                                        'move_name': move_name  # Fatura numarası
+                                    })
+                                    
+                                except ZeroDivisionError as e:
+                                    print(f"⚠️ Satır işleme hatası (Sıfıra bölme): Line ID {line_id_for_error}, Hata: {str(e)[:200]}")
+                                    # Hata loglama için devam et
+                                    continue
+                                except Exception as e:
+                                    error_type = type(e).__name__
+                                    error_msg = str(e)[:300]
+                                    print(f"⚠️ Satır işleme hatası: Line ID {line_id_for_error}, Tip: {error_type}, Hata: {error_msg}")
+                                    # Hata loglama için devam et
+                                    continue
+                            
+                            print("\n✅ Veri işleme tamamlandı!")
+                            print(f"📦 Kategori sayısı: {len(processed_data['categories'])}")
+                            print(f"🏷️ Ürün sayısı: {len(processed_data['products'])}")
+                            print(f"🤝 Müşteri sayısı: {len(processed_data['partners'])}")
+                            print(f"📋 Detay kayıt sayısı: {len(details)}")
+                            print(f"👤 Satış Temsilcisi sayısı: {len(processed_data['sales_persons'])}")
+                            print(f"🏙️ Şehir sayısı: {len(processed_data['cities'])}")
+                            print(f"📅 Yıl sayısı: {len(processed_data['years'])}")
+                            print(f"📆 Ay sayısı: {len(processed_data['months'])}")
+                            print(f"\n💰 FATURA İSTATİSTİKLERİ:")
+                            print(f"   ✅ Satış Faturaları (out_invoice): {invoice_count} adet, ${invoice_total_usd:,.2f}")
+                            print(f"   ❌ İade Faturaları (out_refund): {refund_count} adet, ${refund_total_usd:,.2f}")
+                            print(f"   🎟️ İndirim Ürünleri: {discount_count} adet, ${discount_total_usd:,.2f}")
+                            print(f"   🔧 Hizmet Ürünleri: {service_count} adet, ${service_total_usd:,.2f}")
+                            print(f"   📊 NET TOPLAM: ${invoice_total_usd - refund_total_usd - discount_total_usd - service_total_usd:,.2f}")
+                            
+                            # RES.PARTNER (Müşteri) Detaylı Bilgileri Çek (XML-RPC) - TÜM MÜŞTERİLER
+                            print("\n4️⃣ Müşteri detay bilgileri çekiliyor (res.partner - XML-RPC)...")
+                            
+                            partner_ids = list(processed_data['partners'].keys())  # TÜM MÜŞTERİLER
+                            print(f"👥 Toplam {len(partner_ids)} müşteri detayı çekilecek...")
+                            
+                            if partner_ids and models:
+                                try:
+                                    partners = models.execute_kw(
+                                        db, uid_xmlrpc, password,
+                                        'res.partner', 'search_read',
+                                        [[('id', 'in', partner_ids)]],
+                                        {
+                                            'fields': [
+                                                'id', 'name', 'email', 'phone', 'mobile',
+                                                'street', 'city', 'state_id', 'country_id',
+                                                'customer_rank', 'supplier_rank', 'company_type',
+                                                'vat', 'category_id', 'user_id', 'create_date'
+                                            ]
+                                        }
+                                    )
+                                    
+                                    partner_details = {}
+                                    
+                                    for partner in partners:
+                                        partner_id = partner.get('id')
+                                        
+                                        state = partner.get('state_id')
+                                        state_name = state[1] if isinstance(state, list) and len(state) > 1 else ''
+                                        
+                                        country = partner.get('country_id')
+                                        country_name = country[1] if isinstance(country, list) and len(country) > 1 else ''
+                                        
+                                        categories = partner.get('category_id', [])
+                                        category_names = [cat[1] for cat in categories if isinstance(cat, list) and len(cat) > 1] if categories else []
+                                        
+                                        user = partner.get('user_id')
+                                        user_name = user[1] if isinstance(user, list) and len(user) > 1 else ''
+                                        
+                                        partner_details[partner_id] = {
+                                            'name': partner.get('name', ''),
+                                            'email': partner.get('email', ''),
+                                            'phone': partner.get('phone', ''),
+                                            'mobile': partner.get('mobile', ''),
+                                            'street': partner.get('street', ''),
+                                            'city': partner.get('city', ''),
+                                            'state': state_name,
+                                            'country': country_name,
+                                            'customer_rank': partner.get('customer_rank', 0),
+                                            'supplier_rank': partner.get('supplier_rank', 0),
+                                            'company_type': partner.get('company_type', ''),
+                                            'vat': partner.get('vat', ''),
+                                            'categories': category_names,
+                                            'sales_person': user_name,
+                                            'create_date': partner.get('create_date', ''),
+                                            'sales_data': processed_data['partners'].get(partner_id, {})
+                                        }
+                                    
+                                    processed_data['partner_details'] = partner_details
+                                    
+                                    print(f"✅ {len(partner_details)} müşteri detayı çekildi (XML-RPC)!")
+                                    print(f"📧 Email olan: {sum(1 for p in partner_details.values() if p['email'])}")
+                                    print(f"📱 Telefon olan: {sum(1 for p in partner_details.values() if p['phone'] or p['mobile'])}")
+                                    print(f"🏙️ Şehir bilgisi olan: {sum(1 for p in partner_details.values() if p['city'])}")
+                                    
+                                except Exception as e:
+                                    print(f"⚠️ Müşteri detayları çekme hatası: {e}")
+                                    processed_data['partner_details'] = {}
+                            else:
+                                print("⚠️ Müşteri ID'leri yok veya XML-RPC bağlantısı yok")
+                                processed_data['partner_details'] = {}
+                            
+                            # Detayları processed_data'ya ekle
+                            processed_data['details'] = details
+                            
+                            # JSON dosyaları oluştur (YILLARA BÖLÜNMÜŞ + GZIP)
+                            print("\n5️⃣ JSON dosyaları oluşturuluyor (yıllara bölünmüş + sıkıştırılmış)...")
+                            
+                            import gzip
+                            from collections import defaultdict
+                            
+                            # MEVCUT VERİLERİ KORUMA MANTIGI
+                            print("\n🔄 Mevcut veriler kontrol ediliyor...")
+                            
+                            # Mevcut dosyaları oku ve koru
+                            existing_data = {}
+                            for year in ['2023', '2024', '2025']:
+                                filename = f'data-{year}.json.gz'
+                                if os.path.exists(filename):
+                                    try:
+                                        with gzip.open(filename, 'rt', encoding='utf-8') as f:
+                                            existing_data[year] = json.load(f)
+                                        print(f"   ✅ {year}: {len(existing_data[year].get('details', []))} kayıt (mevcut)")
+                                    except Exception as e:
+                                        print(f"   ⚠️ {year}: Okuma hatası - {e}")
+                                        existing_data[year] = None
+                                else:
+                                    print(f"   ❌ {year}: Dosya yok")
+                                    existing_data[year] = None
+                            
+                            # Duplicate kontrolü kaldırıldı - details direkt kullanılıyor
+                            print(f"✅ {len(details)} kayıt işleniyor...")
+                            
+                            # Yeni verileri yıllara göre ayır
+                            new_data_by_year = defaultdict(list)
+                            for record in details:
+                                year = record['date'][:4] if record.get('date') else '2025'
+                                new_data_by_year[year].append(record)
+                            
+                            # Veri birleştirme stratejisi
+                            if data_scope == 'specific_year':
+                                print(f"🔄 SADECE {target_year} yılı güncelleniyor, diğerleri korunuyor...")
+                                # Sadece seçilen yılı güncelle, diğerlerini koru
+                                final_data_by_year = {}
+                                for year in ['2023', '2024', '2025']:
+                                    if year == target_year:
+                                        # Seçilen yıl: yeni veri
+                                        final_data_by_year[year] = new_data_by_year.get(year, [])
+                                        print(f"   🔄 {year}: {len(final_data_by_year[year])} kayıt (YENİ)")
+                                    else:
+                                        # Diğer yıllar: mevcut veri
+                                        if existing_data.get(year):
+                                            final_data_by_year[year] = existing_data[year].get('details', [])
+                                            print(f"   🔒 {year}: {len(final_data_by_year[year])} kayıt (KORUNDU)")
+                                        else:
+                                            final_data_by_year[year] = []
+                                            print(f"   ❌ {year}: Veri yok")
+                            else:
+                                print("🔄 TÜM YILLAR güncelleniyor...")
+                                # Tüm yılları güncelle
+                                final_data_by_year = dict(new_data_by_year)
+                                for year in ['2023', '2024', '2025']:
+                                    if year not in final_data_by_year:
+                                        final_data_by_year[year] = []
+                                    print(f"   🔄 {year}: {len(final_data_by_year[year])} kayıt (YENİ)")
+                            
+                            print(f"\n📊 Final veri dağılımı:")
+                            for year in sorted(final_data_by_year.keys()):
+                                print(f"   - {year}: {len(final_data_by_year[year])} kayıt")
+                            
+                            # Her yıl için ayrı sıkıştırılmış dosya oluştur
+                            created_files = []
+                            for year in sorted(final_data_by_year.keys()):
+                                year_data = {
+                                    'year': year,
+                                    'categories': processed_data['categories'],
+                                    'products': processed_data['products'],
+                                    'partners': processed_data['partners'],
+                                    'partner_details': processed_data['partner_details'],
+                                    'sales_persons': processed_data['sales_persons'],
+                                    'stores': processed_data['stores'],
+                                    'years': processed_data['years'],
+                                    'months': processed_data['months'],
+                                    'details': final_data_by_year[year]
+                                }
+                                
+                                filename = f'data-{year}.json.gz'
+                                # GZIP Level 9: Maksimum sıkıştırma (daha küçük dosyalar)
+                                with gzip.open(filename, 'wt', encoding='utf-8', compresslevel=9) as f:
+                                    json.dump(year_data, f, ensure_ascii=False)
+                                
+                                # Dosya boyutunu kontrol et
+                                import os
+                                file_size_mb = os.path.getsize(filename) / (1024 * 1024)
+                                print(f"   ✅ {filename}: {file_size_mb:.2f} MB")
+                                created_files.append(filename)
+                            
+                            # Metadata dosyası oluştur (hangi yıllar var?)
+                            total_records = sum(len(records) for records in final_data_by_year.values())
+                            metadata = {
+                                'years': sorted(final_data_by_year.keys()),
+                                'total_records': total_records,
+                                'files': created_files,
+                                'last_update': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                                'data_scope': data_scope,
+                                'target_year': target_year if data_scope == 'specific_year' else None
+                            }
+                            
+                            with open('data-metadata.json', 'w', encoding='utf-8') as f:
+                                json.dump(metadata, f, ensure_ascii=False, indent=2)
+                            
+                            print(f"✅ {len(created_files)} dosya oluşturuldu!")
+                            print(f"✅ data-metadata.json oluşturuldu!")
+                            
+                            # ENVANTER VERİSİ ÇEK (YENİ!)
+                            print("\n" + "=" * 60)
+                            print("📦 ENVANTER VERİSİ ÇEKİLİYOR")
+                            print("=" * 60)
+                            
+                            try:
+                                # PerakendeStok filtresini bul
+                                print("🔍 'PerakendeStok' filtresi aranıyor...")
+                                
+                                inventory_filters = models.execute_kw(
+                                    db, uid_xmlrpc, password,
+                                    'ir.filters', 'search_read',
+                                    [[
+                                        ('user_id', '=', uid_xmlrpc),
+                                        ('name', '=', 'PerakendeStok')
+                                    ]],
+                                    {'fields': ['name', 'domain', 'model_id']}
+                                )
+                                
+                                if inventory_filters and len(inventory_filters) > 0:
+                                    inv_filter = inventory_filters[0]
+                                    print(f"✅ PerakendeStok filtresi bulundu!")
+                                    print(f"📋 Model: {inv_filter.get('model_id')}")
+                                    print(f"📋 Domain: {inv_filter['domain']}")
+                                    
+                                    # Domain'i parse et
+                                    inv_domain = ast.literal_eval(inv_filter['domain']) if inv_filter['domain'] else []
+                                    
+                                    # stock.quant'tan envanter verilerini çek
+                                    print("📦 Envanter verileri çekiliyor...")
+                                    
+                                    inventory_data = models.execute_kw(
+                                        db, uid_xmlrpc, password,
+                                        'stock.quant', 'search_read',
+                                        [inv_domain],
+                                        {
+                                            'fields': [
+                                                'id', 'product_id', 'location_id',
+                                                'quantity', 'reserved_quantity',
+                                                'available_quantity', 'lot_id',
+                                                'package_id', 'owner_id'
+                                            ]
+                                        }
+                                    )
+                                    
+                                    print(f"✅ {len(inventory_data)} envanter kaydı çekildi!")
+                                    
+                                    # Ürün detaylarını çek
+                                    product_ids = list(set([item['product_id'][0] for item in inventory_data if item.get('product_id')]))
+                                    print(f"📦 {len(product_ids)} ürün detayı çekiliyor...")
+                                    
+                                    products = models.execute_kw(
+                                        db, uid_xmlrpc, password,
+                                        'product.product', 'search_read',
+                                        [[('id', 'in', product_ids)]],
+                                        {
+                                            'fields': [
+                                                'id', 'name', 'default_code', 
+                                                'categ_id', 'product_brand_id',
+                                                'list_price', 'standard_price'
+                                            ]
+                                        }
+                                    )
+                                    
+                                    product_map = {p['id']: p for p in products}
+                                    
+                                    # Envanter verisini işle
+                                    processed_inventory = []
+                                    for item in inventory_data:
+                                        product_id = item['product_id'][0] if item.get('product_id') else 0
+                                        product_info = product_map.get(product_id, {})
+                                        
+                                        location = item.get('location_id')
+                                        location_name = location[1] if isinstance(location, list) and len(location) > 1 else 'Bilinmeyen'
+                                        
+                                        product_name = item['product_id'][1] if isinstance(item.get('product_id'), list) and len(item['product_id']) > 1 else 'Bilinmeyen'
+                                        
+                                        categ = product_info.get('categ_id')
+                                        category = categ[1] if isinstance(categ, list) and len(categ) > 1 else 'Diğer'
+                                        
+                                        brand = product_info.get('product_brand_id')
+                                        brand_name = brand[1] if isinstance(brand, list) and len(brand) > 1 else 'Bilinmeyen'
+                                        
+                                        processed_inventory.append({
+                                            'product_id': product_id,  # Odoo unique ID - fatura kalemleri ile eşleştirme için
+                                            'product_code': product_info.get('default_code', ''),
+                                            'product_name': product_name,
+                                            'category': category,
+                                            'brand': brand_name,
+                                            'location': location_name,
+                                            'quantity': float(item.get('quantity', 0)),
+                                            'reserved_quantity': float(item.get('reserved_quantity', 0)),
+                                            'available_quantity': float(item.get('available_quantity', 0)),
+                                            'list_price': float(product_info.get('list_price', 0)),
+                                            'cost_price': float(product_info.get('standard_price', 0)),
+                                            'total_value': float(item.get('quantity', 0)) * float(product_info.get('standard_price', 0))
+                                        })
+                                    
+                                    # JSON dosyası oluştur
+                                    inventory_json = {
+                                        'inventory': processed_inventory,
+                                        'total_records': len(processed_inventory),
+                                        'total_quantity': sum(item['quantity'] for item in processed_inventory),
+                                        'total_value': sum(item['total_value'] for item in processed_inventory),
+                                        'last_update': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                                    }
+                                    
+                                    # Sıkıştırılmış dosya olarak kaydet (Level 9: Maksimum sıkıştırma)
+                                    with gzip.open('inventory.json.gz', 'wt', encoding='utf-8', compresslevel=9) as f:
+                                        json.dump(inventory_json, f, ensure_ascii=False)
+                                    
+                                    file_size_mb = os.path.getsize('inventory.json.gz') / (1024 * 1024)
+                                    print(f"✅ inventory.json.gz oluşturuldu: {file_size_mb:.2f} MB")
+                                    print(f"📊 Toplam miktar: {inventory_json['total_quantity']:,.0f}")
+                                    print(f"💰 Toplam değer: ${inventory_json['total_value']:,.2f}")
+                                    
+                                else:
+                                    print("⚠️ PerakendeStok filtresi bulunamadı, envanter atlanıyor...")
+                                    
+                            except Exception as e:
+                                print(f"⚠️ Envanter çekme hatası: {e}")
+                                print("⚠️ Envanter verisi atlanıyor, fatura verileri ile devam ediliyor...")
+                            
+                            print("\n" + "=" * 60)
+                            print("🎉 TÜM VERİLER BAŞARIYLA ÇEKİLDİ VE İŞLENDİ!")
+                            print("=" * 60)
+                            
+                        else:
+                            print(f"❌ Fatura verileri çekilemedi!")
+                            print(f"Yanıt: {all_data if 'all_data' in locals() else 'Veri yok'}")
+                            exit(1)
+                        
+                    else:
+                        print("❌ UID bulunamadı!")
+                        print(f"Session: {session_info}")
+                        exit(1)
+                else:
+                    print("❌ Geçersiz session!")
+                    print(f"Result: {result}")
+                    exit(1)
+            else:
+                print("❌ Beklenmeyen yanıt!")
+                print(f"Response: {result}")
+                exit(1)
+                
+        except Exception as e:
+            print(f"❌ Hata: {e}")
+            import traceback
+            traceback.print_exc()
+            exit(1)
+        
+        EOF
+    
+    - name: Dosya Boyutlarını Kontrol Et
+      run: |
+        echo "📊 Oluşturulan dosyalar:"
+        ls -lh data-*.json.gz data-metadata.json 2>/dev/null || echo "⚠️ Dosyalar bulunamadı"
+        
+        echo ""
+        echo "📊 Dosya boyutları:"
+        for file in data-*.json.gz; do
+          if [ -f "$file" ]; then
+            SIZE=$(stat -f%z "$file" 2>/dev/null || stat -c%s "$file" 2>/dev/null)
+            SIZE_MB=$((SIZE / 1024 / 1024))
+            echo "   - $file: ${SIZE_MB} MB"
+            
+            if [ $SIZE_MB -gt 100 ]; then
+              echo "   ⚠️ UYARI: $file 100 MB'dan büyük!"
+            fi
+          fi
+        done
+    
+    - name: Değişiklikleri commit et ve yükle
+      env:
+        PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+        # DATA_MODE kaldırıldı - kullanılmıyor
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+        # Eski data.json varsa sil (artık kullanmıyoruz)
+        if [[ -f "data.json" ]]; then
+          echo "🗑️ Eski data.json siliniyor..."
+          git rm -f data.json 2>/dev/null || rm -f data.json
+        fi
+        
+        # Yeni dosyaları kontrol et
+        if ls data-*.json.gz 1> /dev/null 2>&1; then
+          echo "✅ Yıllara bölünmüş dosyalar bulundu"
+          
+          # Önce remote değişiklikleri çek
+          echo "🔄 Remote değişiklikler kontrol ediliyor..."
+          git fetch origin
+          
+          # Binary dosyalar için "ours" stratejisi kullan (yeni data her zaman doğrudur)
+          git config merge.ours.driver true
+          echo "data-*.json.gz merge=ours" >> .gitattributes
+          echo "*.gz merge=ours" >> .gitattributes
+          
+          # Pull yap (conflict olursa bizim versiyonu kullan)
+          if git pull origin main --no-rebase -X ours; then
+            echo "✅ Pull başarılı"
+          else
+            echo "⚠️ Pull conflict veya non-fast-forward, merge ile devam ediyor..."
+            # Pull başarısız olursa (conflict veya non-fast-forward)
+            # Önce remote'un son halini merge et
+            if git merge origin/main -X ours --no-edit; then
+              echo "✅ Merge başarılı"
+            else
+              echo "⚠️ Merge başarısız, yeni data ile force merge..."
+              # Merge de başarısız olursa (conflict)
+              git checkout --ours data-*.json.gz data-metadata.json 2>/dev/null || true
+              git add data-*.json.gz data-metadata.json .gitattributes 2>/dev/null || true
+              # Merge'i tamamla (conflict çözüldü)
+              git merge --continue 2>/dev/null || git commit --no-edit 2>/dev/null || echo "Merge zaten tamamlanmış"
+            fi
+          fi
+          
+          # YENİ DOSYALARI EKLE (eski dosyalar otomatik güncellenir)
+          echo "✅ Yeni data dosyaları ve metadata ekleniyor..."
+          git add -f data-*.json.gz data-metadata.json 2>/dev/null || echo "⚠️ Data dosyaları bulunamadı"
+          
+          # Envanter dosyası varsa ekle (her iki mode için)
+          if [[ -f "inventory.json.gz" ]]; then
+            echo "📦 Envanter dosyası ekleniyor..."
+            git add inventory.json.gz
+          fi
+          
+          
+          if [[ -n $(git status -s) ]]; then
+            git commit -m "Veriler güncellendi (Fatura + Envanter) - $(date +'%Y-%m-%d %H:%M')" || echo "Zaten commit edilmiş"
+            
+            # Push URL'ini PAT ile güncelle
+            git remote set-url origin https://x-access-token:${PAT_TOKEN}@github.com/toftamars/satiss-dashboard.git
+            
+            # Push et (non-fast-forward için force-with-lease kullan)
+            if git push origin main; then
+              echo "✅ Değişiklikler GitHub'a yüklendi!"
+              echo "🚀 Vercel otomatik deploy tetiklendi (GitHub commit'ine bağlı)"
+              echo "   📝 Not: Query string cache busting aktif (v= versiyon parametresi)"
+            else
+              echo "⚠️ Normal push başarısız, force-with-lease deneniyor..."
+              # Push başarısız olursa (non-fast-forward hatası)
+              # force-with-lease güvenli force push (başka birisi push etmediyse)
+              if git push origin main --force-with-lease; then
+                echo "✅ Force push (with lease) başarılı!"
+                echo "🚀 Vercel otomatik deploy tetiklendi (GitHub commit'ine bağlı)"
+                echo "   📝 Not: Query string cache busting aktif (v= versiyon parametresi)"
+              else
+                echo "❌ Push başarısız - Remote'da yeni commit var, bir sonraki çalıştırmada otomatik merge edilecek"
+              exit 1
+              fi
+            fi
+          else
+            echo "ℹ️ Değişiklik yok"
+          fi
+        else
+          echo "⚠️ data.json dosyası bulunamadı"
+        fi

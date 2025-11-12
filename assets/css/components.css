@@ -1,0 +1,794 @@
+/* ============================================
+   COMPONENTS.CSS - Bileşen Stilleri
+   Buttons, Cards, Tables, Filters, Multi-Select
+   ============================================ */
+
+/* Search Section */
+.search-section {
+    padding: 30px;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.search-box {
+    display: flex;
+    gap: 10px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.search-box input {
+    flex: 1;
+    padding: 15px 20px;
+    font-size: 1.1em;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    outline: none;
+    transition: all 0.3s;
+    background: rgba(30, 41, 59, 0.8);
+    color: #e2e8f0;
+}
+
+.search-box input:focus {
+    border-color: #10B981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+    background: rgba(30, 41, 59, 0.95);
+}
+
+.search-box button {
+    padding: 15px 30px;
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 1.1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.search-box button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(16, 185, 129, 0.3);
+}
+
+/* Voice Search Button */
+.voice-btn {
+    padding: 15px 20px;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 1.5em;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.voice-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 5px 15px rgba(245, 87, 108, 0.4);
+}
+
+.voice-btn.listening {
+    animation: pulse 1.5s infinite;
+}
+
+/* Filters Section */
+.filters-section {
+    padding: 30px;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.filters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.filter-group label {
+    display: block;
+    font-size: 0.9em;
+    font-weight: 600;
+    color: #cbd5e1;
+    margin-bottom: 5px;
+}
+
+.filter-group select {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    font-size: 1em;
+    outline: none;
+    transition: all 0.3s;
+    min-height: 42px;
+    background: rgba(30, 41, 59, 0.8);
+    color: #e2e8f0;
+}
+
+.filter-group select[multiple] {
+    display: none; /* Gizle, checkbox kullanacağız */
+}
+
+.filter-group select:focus {
+    border-color: #10B981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+.filter-search-box {
+    position: relative;
+    margin-bottom: 8px;
+}
+
+.filter-search-input {
+    width: 100%;
+    padding: 8px 30px 8px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 5px;
+    font-size: 0.9em;
+    box-sizing: border-box;
+    background: rgba(30, 41, 59, 0.8);
+    color: #e2e8f0;
+}
+
+.filter-search-input:focus {
+    outline: none;
+    border-color: #10B981;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.filter-search-clear {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    font-size: 1.2em;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: none;
+}
+
+.filter-search-clear:hover {
+    color: #333;
+}
+
+.checkbox-container {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 10px;
+    background: rgba(30, 41, 59, 0.8);
+    backdrop-filter: blur(10px);
+}
+
+.checkbox-item {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background 0.2s;
+}
+
+.checkbox-item.hidden {
+    display: none;
+}
+
+.checkbox-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.checkbox-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin-right: 10px;
+    cursor: pointer;
+    accent-color: #10B981;
+}
+
+.checkbox-item label {
+    cursor: pointer;
+    flex: 1;
+    margin: 0;
+    font-size: 0.95em;
+}
+
+.selected-count {
+    font-size: 0.85em;
+    color: #10B981;
+    margin-top: 3px;
+    font-weight: 600;
+}
+
+.filter-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.filter-buttons button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-apply {
+    background: #28a745;
+    color: white;
+}
+
+.btn-reset {
+    background: #6c757d;
+    color: white;
+}
+
+.btn-apply:hover {
+    background: #218838;
+}
+
+.btn-reset:hover {
+    background: #5a6268;
+}
+
+/* Summary Cards - Minimalist Premium */
+.summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
+    margin-bottom: 30px;
+}
+
+.summary-card {
+    background: rgba(30, 41, 59, 0.6);
+    color: white;
+    padding: 10px;
+    border-radius: 10px;
+    border-left: 3px solid #10B981;
+    box-shadow: 
+        0 2px 8px rgba(0, 0, 0, 0.2),
+        0 0 0 1px rgba(255, 255, 255, 0.05);
+    position: relative;
+    overflow: hidden;
+}
+
+.summary-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 60px;
+    height: 60px;
+    background: radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, transparent 70%);
+    border-radius: 50%;
+    transform: translate(30%, -30%);
+}
+
+.summary-card h3 {
+    font-size: 0.75em;
+    opacity: 0.9;
+    margin-bottom: 5px;
+    line-height: 1.2;
+    position: relative;
+    z-index: 1;
+}
+
+.summary-card p {
+    font-size: 1.1em;
+    font-weight: 700;
+    line-height: 1.2;
+    position: relative;
+    z-index: 1;
+}
+
+.summary-card small {
+    font-size: 0.7em;
+    line-height: 1.2;
+    opacity: 0.8;
+    position: relative;
+    z-index: 1;
+}
+
+/* Top Stores List - Progress Bar Style */
+.store-list-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.store-item-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.store-header-progress {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.store-rank-progress {
+    font-size: 1em;
+    font-weight: 700;
+    color: #10B981;
+    min-width: 25px;
+}
+
+.store-name-progress {
+    flex: 1;
+    font-size: 0.95em;
+    font-weight: 500;
+}
+
+.store-value-progress {
+    font-size: 1em;
+    font-weight: 700;
+    color: #10B981;
+}
+
+.progress-bar-store {
+    height: 8px;
+    background: linear-gradient(90deg, #10B981, #3B82F6);
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+    transition: width 0.5s ease;
+}
+
+/* Table */
+.table-wrapper {
+    overflow-x: auto;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    background: rgba(30, 41, 59, 0.6);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: transparent;
+    min-width: 1200px;
+}
+
+.data-table thead {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+    color: white;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.data-table th {
+    padding: 15px 10px;
+    text-align: left;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    font-size: 0.9em;
+}
+
+.data-table th:hover {
+    background: rgba(255,255,255,0.1);
+}
+
+.data-table td {
+    padding: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 0.9em;
+    max-width: 250px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #e2e8f0;
+}
+
+.data-table td:hover {
+    overflow: visible;
+    white-space: normal;
+    word-wrap: break-word;
+    position: relative;
+    z-index: 5;
+    background: rgba(30, 41, 59, 0.95);
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
+}
+
+.data-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.data-table td.numeric {
+    text-align: right;
+    font-family: 'Courier New', monospace;
+}
+
+/* Year Toggle Switch - Minimal Design (Only Switches) */
+.year-toggle-container {
+    margin-top: 8px;
+    padding: 0;
+    background: transparent;
+    border-radius: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+}
+
+.year-toggle-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0;
+    background: transparent;
+    border-radius: 0;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.year-toggle-item:hover {
+    transform: scale(1.05);
+}
+
+
+.year-toggle-switch {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    background: #dc3545; /* Kırmızı - kapalı */
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+    box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+}
+
+.year-toggle-switch:hover {
+    background: #c82333; /* Daha koyu kırmızı hover */
+    box-shadow: 0 2px 6px rgba(220, 53, 69, 0.4);
+}
+
+.year-toggle-switch.active {
+    background: #28a745; /* Yeşil - açık */
+    box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+}
+
+.year-toggle-switch.active:hover {
+    background: #218838; /* Daha koyu yeşil hover */
+    box-shadow: 0 2px 6px rgba(40, 167, 69, 0.4);
+}
+
+.year-toggle-switch::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: white;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.3s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.year-toggle-switch.active::after {
+    transform: translateX(16px);
+}
+
+.year-toggle-label {
+    font-weight: 500;
+    font-size: 0.8em;
+    user-select: none;
+    color: rgba(255, 255, 255, 0.9);
+    opacity: 0.85;
+}
+
+.year-toggle-item.active .year-toggle-label {
+    opacity: 1;
+    font-weight: 600;
+}
+
+/* Tab System - Premium Compact Design */
+.tabs-wrapper {
+    background: rgba(30, 41, 59, 0.95);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(10px);
+}
+
+.tabs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 16px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(16, 185, 129, 0.3) transparent;
+}
+
+.tabs::-webkit-scrollbar {
+    height: 4px;
+}
+
+.tabs::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.tabs::-webkit-scrollbar-thumb {
+    background: rgba(16, 185, 129, 0.3);
+    border-radius: 2px;
+}
+
+.tabs::-webkit-scrollbar-thumb:hover {
+    background: rgba(16, 185, 129, 0.5);
+}
+
+.tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    font-size: 0.85em;
+    font-weight: 500;
+    color: #94a3b8;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 10px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    position: relative;
+    min-height: 36px;
+}
+
+.tab:hover {
+    color: #10B981;
+    background: rgba(16, 185, 129, 0.1);
+    transform: translateY(-1px);
+}
+
+.tab:active {
+    transform: translateY(0);
+}
+
+.tab.active {
+    color: #10B981;
+    background: rgba(16, 185, 129, 0.15);
+    font-weight: 600;
+}
+
+.tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60%;
+    height: 2px;
+    background: linear-gradient(90deg, #10B981 0%, #34D399 100%);
+    border-radius: 2px 2px 0 0;
+}
+
+.tab-icon {
+    font-size: 1.1em;
+    line-height: 1;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tab-text {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.2;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Export Button */
+.export-btn {
+    padding: 12px 25px;
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-left: 10px;
+}
+
+.export-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(17, 153, 142, 0.3);
+}
+
+/* Multi-Select Dropdown Styles */
+.multi-select-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.multi-select-button {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    font-size: 16px;
+    background: rgba(30, 41, 59, 0.8);
+    backdrop-filter: blur(10px);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-sizing: border-box;
+    color: #e2e8f0;
+}
+
+.multi-select-button:hover {
+    border-color: #10B981;
+}
+
+.multi-select-button.active {
+    border-color: #10B981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+.multi-select-button .selected-text {
+    flex: 1;
+    text-align: left;
+    color: #e2e8f0;
+}
+
+.multi-select-button .placeholder {
+    color: #94a3b8;
+}
+
+.multi-select-button .arrow {
+    margin-left: 10px;
+    transition: transform 0.2s;
+}
+
+.multi-select-button.active .arrow {
+    transform: rotate(180deg);
+}
+
+.multi-select-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 4px;
+    background: rgba(30, 41, 59, 0.95);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    max-height: 300px;
+    overflow-y: auto;
+    display: none;
+}
+
+.multi-select-dropdown.active {
+    display: block;
+}
+
+.multi-select-search {
+    padding: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    position: sticky;
+    top: 0;
+    background: rgba(30, 41, 59, 0.95);
+    backdrop-filter: blur(10px);
+    z-index: 10;
+}
+
+.multi-select-search input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    font-size: 14px;
+    background: rgba(15, 23, 42, 0.8);
+    color: #e2e8f0;
+}
+
+.multi-select-options {
+    padding: 4px 0;
+}
+
+.multi-select-option {
+    padding: 10px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: background 0.2s;
+}
+
+.multi-select-option {
+    color: #e2e8f0;
+}
+
+.multi-select-option:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.multi-select-option input[type="checkbox"] {
+    margin-right: 10px;
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+}
+
+.multi-select-option label {
+    cursor: pointer;
+    flex: 1;
+    user-select: none;
+}
+
+.multi-select-footer {
+    padding: 8px;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.multi-select-footer button {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    background: rgba(30, 41, 59, 0.8);
+    backdrop-filter: blur(10px);
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+    color: #e2e8f0;
+}
+
+.multi-select-footer button:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.multi-select-footer .select-all {
+    color: #10B981;
+    border-color: #10B981;
+}
+
+.multi-select-footer .clear-all {
+    color: #ef4444;
+    border-color: #ef4444;
+}
+
