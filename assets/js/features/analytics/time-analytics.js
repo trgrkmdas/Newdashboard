@@ -37,15 +37,22 @@ function extractTimeInfo(item) {
     let dayOfWeek = null;
     
     // 1. Önce create_hour ve day_of_week varsa kullan
-    if (item.create_hour !== undefined && item.create_hour !== null && item.create_hour !== 0) {
-        hour = parseInt(item.create_hour);
+    // DÜZELTME: create_hour = 0 geçerli bir saat (gece yarısı), kontrol düzeltildi
+    if (item.create_hour !== undefined && item.create_hour !== null) {
+        const parsedHour = parseInt(item.create_hour);
+        if (!isNaN(parsedHour) && parsedHour >= 0 && parsedHour < 24) {
+            hour = parsedHour;
+        }
     }
     if (item.day_of_week !== undefined && item.day_of_week !== null && item.day_of_week !== '') {
-        dayOfWeek = parseInt(item.day_of_week);
+        const parsedDay = parseInt(item.day_of_week);
+        if (!isNaN(parsedDay) && parsedDay >= 0 && parsedDay < 7) {
+            dayOfWeek = parsedDay;
+        }
     }
     
     // 2. Yoksa item.date'den parse et
-    if ((hour === null || hour === 0) && item.date) {
+    if (hour === null && item.date) {
         try {
             // Format: "2025-01-15" veya "2025-01-15 14:30:00"
             const dateStr = item.date.trim();
@@ -87,13 +94,14 @@ function extractTimeInfo(item) {
         }
     }
     
-    // 3. Geçerli aralık kontrolü
+    // 3. Geçerli aralık kontrolü (ekstra güvenlik)
     if (hour !== null && (hour < 0 || hour >= 24)) hour = null;
     if (dayOfWeek !== null && (dayOfWeek < 0 || dayOfWeek >= 7)) dayOfWeek = null;
     
+    // DÜZELTME: null değerleri döndür (0 yerine), çağıran fonksiyon kontrol etsin
     return {
-        hour: hour !== null ? hour : 0,
-        dayOfWeek: dayOfWeek !== null ? dayOfWeek : 0
+        hour: hour, // null olabilir
+        dayOfWeek: dayOfWeek // null olabilir
     };
 }
 
@@ -143,61 +151,118 @@ export function analyzeTime() {
 export function updateTimeSummary() {
     const filteredData = getFilteredData();
     
+    // DÜZELTME: shouldHideItem ile filtrelenmiş veriden hesapla (Dashboard ile tutarlı)
+    const shouldHideItem = window.shouldHideItem || (() => false);
+    
     // Saatlik veri topla
     const hourData = {};
-    const dayData = {};
+    // Günlük veri: hem tutar, hem adet, hem de unique tarih sayısı için
+    const dayData = {}; // {day: {total: 0, quantity: 0, dates: new Set()}}
     let workHoursSales = 0;
     let weekendSales = 0;
     
     filteredData.forEach(item => {
-        // Sadece pozitif satışları analiz et (iade faturaları hariç)
+        // shouldHideItem kontrolü (iadeler ve indirim ürünleri filtreleniyor)
+        if (shouldHideItem(item)) {
+            return;
+        }
+        
+        // Güvenli sayı dönüşümü (NaN kontrolü)
         const sales = parseFloat(item.usd_amount || 0);
-        if (sales <= 0) return; // Negatif değerleri (iade) atla
+        if (isNaN(sales) || sales <= 0) return;
+        
+        // Satış adedi (quantity) - pozitif değerler için
+        const quantity = parseFloat(item.quantity || 0);
+        const validQuantity = !isNaN(quantity) && quantity > 0 ? quantity : 0;
+        
+        // DÜZELTME: En yoğun gün satış adedi bazında hesaplandığı için,
+        // quantity = 0 olan item'ları quantity hesaplamasına dahil etmemek daha mantıklı
+        // Ancak sales > 0 ise, o item hala bir satış işlemi, sadece quantity bilgisi eksik
+        // Bu durumda quantity hesaplamasına dahil etmemek daha doğru
         
         // Tarih ve saat bilgisini doğru parse et
         const timeInfo = extractTimeInfo(item);
         const hour = timeInfo.hour;
         const day = timeInfo.dayOfWeek;
         
-        // Saatlik
-        if (!hourData[hour]) hourData[hour] = 0;
-        hourData[hour] += sales;
+        // Saatlik (hour null ise atla)
+        if (hour !== null && hour >= 0 && hour < 24) {
+            if (!hourData[hour]) hourData[hour] = 0;
+            hourData[hour] += sales;
+        }
         
-        // Günlük
-        if (!dayData[day]) dayData[day] = 0;
-        dayData[day] += sales;
+        // Günlük veri toplama - hem tutar, hem adet, hem de unique tarih sayısı
+        // NOT: quantity > 0 olan item'lar için quantity hesaplaması yapılıyor
+        if (day !== null && day >= 0 && day < 7) {
+            if (!dayData[day]) {
+                dayData[day] = {
+                    total: 0,
+                    quantity: 0,
+                    dates: new Set()
+                };
+            }
+            dayData[day].total += sales;
+            // Sadece quantity > 0 olan item'ları quantity hesaplamasına dahil et
+            if (validQuantity > 0) {
+                dayData[day].quantity += validQuantity;
+            }
+            // Unique tarih sayısı için (normalizasyon için) - sadece quantity > 0 olan item'lar için
+            // DÜZELTME: Normalizasyon için sadece quantity > 0 olan item'ların tarihlerini saymak daha mantıklı
+            if (item.date && validQuantity > 0) {
+                dayData[day].dates.add(item.date.split(' ')[0]); // Sadece tarih kısmı (YYYY-MM-DD)
+            }
+        }
         
-        // Mesai saati (09:00-18:00)
-        if (hour >= 9 && hour < 18) {
+        // Mesai saati (09:00-18:00) - hour null kontrolü
+        if (hour !== null && hour >= 9 && hour < 18) {
             workHoursSales += sales;
         }
         
-        // Hafta sonu (Cumartesi=5, Pazar=6) - Python formatı: 0=Pazartesi, 6=Pazar
-        if (day === 5 || day === 6) {
+        // Hafta sonu (Cumartesi=5, Pazar=6) - Python formatı: 0=Pazartesi, 6=Pazar - day null kontrolü
+        if (day !== null && (day === 5 || day === 6)) {
             weekendSales += sales;
         }
     });
     
     // En yoğun saat
-    let peakHour = 0;
+    let peakHour = null;
     let maxHourSales = 0;
     for (const [hour, sales] of Object.entries(hourData)) {
-        if (sales > maxHourSales) {
+        const hourNum = parseInt(hour);
+        if (!isNaN(hourNum) && sales > maxHourSales) {
             maxHourSales = sales;
-            peakHour = parseInt(hour);
+            peakHour = hourNum;
         }
     }
     
-    // En yoğun gün
+    // Eğer peakHour bulunamadıysa, varsayılan değer
+    if (peakHour === null) peakHour = 0;
+    
+    // En yoğun gün - SATIŞ ADEDİ (QUANTITY) BAZINDA
     const dayNames = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
-    let peakDay = 0;
-    let maxDaySales = 0;
-    for (const [day, sales] of Object.entries(dayData)) {
-        if (sales > maxDaySales) {
-            maxDaySales = sales;
-            peakDay = parseInt(day);
+    let peakDay = null;
+    let maxDayQuantity = 0;
+    let peakDayTotal = 0;
+    let peakDayDailyAvg = 0;
+    
+    for (const [day, data] of Object.entries(dayData)) {
+        const dayNum = parseInt(day);
+        if (!isNaN(dayNum) && dayNum >= 0 && dayNum < 7) {
+            // Satış adedi bazında en yoğun günü bul
+            // DÜZELTME: quantity > 0 kontrolü eklendi - sadece geçerli quantity'ye sahip günleri karşılaştır
+            if (data.quantity > 0 && data.quantity > maxDayQuantity) {
+                maxDayQuantity = data.quantity;
+                peakDay = dayNum;
+                peakDayTotal = data.total;
+                // Günlük ortalama normalizasyonu: toplam adet / unique tarih sayısı
+                const uniqueDatesCount = data.dates.size || 1; // En az 1 (sıfıra bölme önleme)
+                peakDayDailyAvg = data.quantity / uniqueDatesCount;
+            }
         }
     }
+    
+    // Eğer peakDay bulunamadıysa, varsayılan değer
+    if (peakDay === null) peakDay = 0;
     
     // UI güncelle
     const peakHourEl = document.getElementById('peakHour');
@@ -206,7 +271,23 @@ export function updateTimeSummary() {
     const weekendSalesEl = document.getElementById('weekendSales');
     
     if (peakHourEl) peakHourEl.textContent = `${String(peakHour).padStart(2, '0')}:00-${String(peakHour + 1).padStart(2, '0')}:00`;
-    if (peakDayEl) peakDayEl.textContent = dayNames[peakDay];
+    
+    // En yoğun gün: gün adı + satış adedi + günlük ortalama bilgisi
+    if (peakDayEl) {
+        const peakDayName = dayNames[peakDay];
+        const quantityText = maxDayQuantity > 0 
+            ? `${maxDayQuantity.toLocaleString('tr-TR')} adet` 
+            : 'Veri yok';
+        
+        // Günlük ortalama bilgisi (normalizasyon)
+        const uniqueDatesCount = dayData[peakDay]?.dates?.size || 1;
+        const dailyAvgText = uniqueDatesCount > 1 
+            ? ` (Günlük ort: ${peakDayDailyAvg.toFixed(0)} adet)` 
+            : '';
+        
+        peakDayEl.innerHTML = `${peakDayName}<br><small style="opacity: 0.8;">${quantityText}${dailyAvgText}</small>`;
+    }
+    
     if (workHoursSalesEl) workHoursSalesEl.textContent = '$' + workHoursSales.toLocaleString('tr-TR', {minimumFractionDigits: 2});
     if (weekendSalesEl) weekendSalesEl.textContent = '$' + weekendSales.toLocaleString('tr-TR', {minimumFractionDigits: 2});
 }
@@ -222,14 +303,26 @@ export function renderHourlyChart() {
     
     // 24 saatlik veri
     const hourData = Array(24).fill(0);
+    // DÜZELTME: shouldHideItem ile filtrelenmiş veriden hesapla (Dashboard ile tutarlı)
+    const shouldHideItem = window.shouldHideItem || (() => false);
+    
     const hourCount = Array(24).fill(0);
     
     filteredData.forEach(item => {
+        // shouldHideItem kontrolü (iadeler ve indirim ürünleri filtreleniyor)
+        if (shouldHideItem(item)) {
+            return;
+        }
+        
+        // Güvenli sayı dönüşümü (NaN kontrolü)
         const sales = parseFloat(item.usd_amount || 0);
-        if (sales <= 0) return; // Negatif değerleri (iade) atla
+        if (isNaN(sales) || sales <= 0) return;
         
         const timeInfo = extractTimeInfo(item);
         const hour = timeInfo.hour;
+        
+        // hour null veya geçersiz ise atla
+        if (hour === null || hour < 0 || hour >= 24) return;
         
         hourData[hour] += sales;
         hourCount[hour] += 1;
@@ -297,12 +390,22 @@ export function renderMonthlyTrendChart() {
     // Aylık veriyi topla
     const monthlyData = {};
     filteredData.forEach(item => {
+        // İade ve indirim ürünlerini atla
+        if (item.is_refund || item.is_discount || item.is_service) {
+            return;
+        }
+        
         if (!item.date) return;
         const month = item.date.substring(0, 7); // YYYY-MM
         if (!monthlyData[month]) {
             monthlyData[month] = 0;
         }
-        monthlyData[month] += parseFloat(item.usd_amount || 0);
+        
+        // Güvenli sayı dönüşümü (NaN kontrolü)
+        const sales = parseFloat(item.usd_amount || 0);
+        if (!isNaN(sales) && sales > 0) {
+            monthlyData[month] += sales;
+        }
     });
     
     // Sırala ve formata et
@@ -310,7 +413,13 @@ export function renderMonthlyTrendChart() {
     const monthLabels = sortedMonths.map(m => {
         const [year, month] = m.split('-');
         const monthNames = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
-        return `${monthNames[parseInt(month) - 1]} ${year}`;
+        const monthIndex = parseInt(month) - 1;
+        // Güvenlik kontrolü: geçerli ay index'i (0-11)
+        if (monthIndex >= 0 && monthIndex < 12) {
+            return `${monthNames[monthIndex]} ${year}`;
+        }
+        // Fallback: ay numarasını göster
+        return `${month} ${year}`;
     });
     const monthValues = sortedMonths.map(m => monthlyData[m]);
     
@@ -369,12 +478,22 @@ export function renderYearlyTrendChart() {
     // Yıllık veriyi topla
     const yearlyData = {};
     filteredData.forEach(item => {
+        // İade ve indirim ürünlerini atla
+        if (item.is_refund || item.is_discount || item.is_service) {
+            return;
+        }
+        
         if (!item.date) return;
         const year = item.date.substring(0, 4); // YYYY
         if (!yearlyData[year]) {
             yearlyData[year] = 0;
         }
-        yearlyData[year] += parseFloat(item.usd_amount || 0);
+        
+        // Güvenli sayı dönüşümü (NaN kontrolü)
+        const sales = parseFloat(item.usd_amount || 0);
+        if (!isNaN(sales) && sales > 0) {
+            yearlyData[year] += sales;
+        }
     });
     
     // Sırala
@@ -503,11 +622,21 @@ export function renderStoreTimeChart() {
     
     const hourData = Array(24).fill(0);
     data.forEach(item => {
+        // İade ve indirim ürünlerini atla
+        if (item.is_refund || item.is_discount || item.is_service) {
+            return;
+        }
+        
+        // Güvenli sayı dönüşümü (NaN kontrolü)
         const sales = parseFloat(item.usd_amount || 0);
-        if (sales <= 0) return; // Negatif değerleri (iade) atla
+        if (isNaN(sales) || sales <= 0) return;
         
         const timeInfo = extractTimeInfo(item);
         const hour = timeInfo.hour;
+        
+        // hour null veya geçersiz ise atla
+        if (hour === null || hour < 0 || hour >= 24) return;
+        
         hourData[hour] += sales;
     });
     
@@ -562,11 +691,21 @@ export function renderCategoryTimeChart() {
     
     const hourData = Array(24).fill(0);
     data.forEach(item => {
+        // İade ve indirim ürünlerini atla
+        if (item.is_refund || item.is_discount || item.is_service) {
+            return;
+        }
+        
+        // Güvenli sayı dönüşümü (NaN kontrolü)
         const sales = parseFloat(item.usd_amount || 0);
-        if (sales <= 0) return; // Negatif değerleri (iade) atla
+        if (isNaN(sales) || sales <= 0) return;
         
         const timeInfo = extractTimeInfo(item);
         const hour = timeInfo.hour;
+        
+        // hour null veya geçersiz ise atla
+        if (hour === null || hour < 0 || hour >= 24) return;
+        
         hourData[hour] += sales;
     });
     
@@ -621,11 +760,21 @@ export function renderSalesPersonTimeChart() {
     
     const hourData = Array(24).fill(0);
     data.forEach(item => {
+        // İade ve indirim ürünlerini atla
+        if (item.is_refund || item.is_discount || item.is_service) {
+            return;
+        }
+        
+        // Güvenli sayı dönüşümü (NaN kontrolü)
         const sales = parseFloat(item.usd_amount || 0);
-        if (sales <= 0) return; // Negatif değerleri (iade) atla
+        if (isNaN(sales) || sales <= 0) return;
         
         const timeInfo = extractTimeInfo(item);
         const hour = timeInfo.hour;
+        
+        // hour null veya geçersiz ise atla
+        if (hour === null || hour < 0 || hour >= 24) return;
+        
         hourData[hour] += sales;
     });
     
@@ -677,19 +826,32 @@ export function performTimeAIAnalysis() {
     
     // Zaman verilerini analiz et
     const hourData = {};
-    const dayData = {};
+    const dayData = {}; // {day: {sales: 0, quantity: 0, count: 0, dates: new Set()}}
     const storeHourData = {};
     const categoryHourData = {};
     
     filteredData.forEach(item => {
-        // Sadece pozitif satışları analiz et (iade faturaları hariç)
+        // İade ve indirim ürünlerini atla (sadece gerçek satışlar)
+        if (item.is_refund || item.is_discount || item.is_service) {
+            return;
+        }
+        
+        // Güvenli sayı dönüşümü (NaN kontrolü)
         const sales = parseFloat(item.usd_amount || 0);
-        if (sales <= 0) return; // Negatif değerleri (iade) atla
+        if (isNaN(sales) || sales <= 0) return;
+        
+        // Satış adedi (quantity) - pozitif değerler için
+        const quantity = parseFloat(item.quantity || 0);
+        const validQuantity = !isNaN(quantity) && quantity > 0 ? quantity : 0;
         
         // Tarih ve saat bilgisini doğru parse et
         const timeInfo = extractTimeInfo(item);
         const hour = timeInfo.hour;
         const day = timeInfo.dayOfWeek;
+        
+        // hour/day null veya geçersiz ise atla
+        if (hour === null || hour < 0 || hour >= 24) return;
+        if (day === null || day < 0 || day >= 7) return;
         
         const store = item.store || 'Bilinmiyor';
         const category = item.category_1 || 'Bilinmiyor';
@@ -698,9 +860,17 @@ export function performTimeAIAnalysis() {
         hourData[hour].sales += sales;
         hourData[hour].count += 1;
         
-        if (!dayData[day]) dayData[day] = {sales: 0, count: 0};
+        if (!dayData[day]) dayData[day] = {sales: 0, quantity: 0, count: 0, dates: new Set()};
         dayData[day].sales += sales;
+        // Sadece quantity > 0 olan item'ları quantity hesaplamasına dahil et
+        if (validQuantity > 0) {
+            dayData[day].quantity += validQuantity;
+        }
         dayData[day].count += 1;
+        // Unique tarih sayısı için (normalizasyon için) - sadece quantity > 0 olan item'lar için
+        if (item.date && validQuantity > 0) {
+            dayData[day].dates.add(item.date.split(' ')[0]); // Sadece tarih kısmı (YYYY-MM-DD)
+        }
         
         if (!storeHourData[store]) storeHourData[store] = {};
         if (!storeHourData[store][hour]) storeHourData[store][hour] = 0;
@@ -734,33 +904,51 @@ export function performTimeAIAnalysis() {
         description: `<span class="metric-highlight">$${maxHourSales.toLocaleString('tr-TR', {minimumFractionDigits: 2})}</span> satış ile en yoğun saat dilimi. Bu saatte personel sayısını artırın.`
     });
     
-    // Gün analizi
+    // Gün analizi - SATIŞ ADEDİ (QUANTITY) BAZINDA
     const dayNames = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
     let peakDay = 0;
+    let maxDayQuantity = 0;
     let maxDaySales = 0;
+    let peakDayDailyAvg = 0;
     let minDay = 0;
+    let minDayQuantity = Infinity;
     let minDaySales = Infinity;
     
     for (const [day, data] of Object.entries(dayData)) {
-        if (data.sales > maxDaySales) {
+        // Satış adedi bazında en yoğun günü bul
+        // DÜZELTME: quantity > 0 kontrolü eklendi - sadece geçerli quantity'ye sahip günleri karşılaştır
+        if (data.quantity > 0 && data.quantity > maxDayQuantity) {
+            maxDayQuantity = data.quantity;
             maxDaySales = data.sales;
             peakDay = parseInt(day);
+            // Günlük ortalama normalizasyonu
+            const uniqueDatesCount = data.dates.size || 1;
+            peakDayDailyAvg = data.quantity / uniqueDatesCount;
         }
-        if (data.sales < minDaySales) {
+        // En düşük günü de bul (karşılaştırma için)
+        if (data.quantity < minDayQuantity && data.quantity > 0) {
+            minDayQuantity = data.quantity;
             minDaySales = data.sales;
             minDay = parseInt(day);
         }
     }
     
+    // Günlük ortalama bilgisi ile birlikte göster
+    const uniqueDatesCount = dayData[peakDay]?.dates?.size || 1;
+    const dailyAvgInfo = uniqueDatesCount > 1 
+        ? ` (Günlük ort: ${peakDayDailyAvg.toFixed(0)} adet)` 
+        : '';
+    
     insights.positive.push({
         title: `En Yoğun Gün: ${dayNames[peakDay]}`,
-        description: `<span class="metric-highlight">$${maxDaySales.toLocaleString('tr-TR', {minimumFractionDigits: 2})}</span> satış ile haftanın en yoğun günü.`
+        description: `<span class="metric-highlight">${maxDayQuantity.toLocaleString('tr-TR')} adet</span> satış ile haftanın en yoğun günü${dailyAvgInfo}. Toplam tutar: <span class="metric-highlight">$${maxDaySales.toLocaleString('tr-TR', {minimumFractionDigits: 2})}</span>`
     });
     
-    if (maxDaySales / minDaySales > 2) {
+    // Sıfıra bölme kontrolü - adet bazında karşılaştırma
+    if (minDayQuantity > 0 && maxDayQuantity / minDayQuantity > 2) {
         insights.negative.push({
             title: 'Günler Arası Büyük Fark',
-            description: `${dayNames[peakDay]} ile ${dayNames[minDay]} arasında <span class="metric-highlight">${((maxDaySales / minDaySales - 1) * 100).toFixed(0)}%</span> fark var. ${dayNames[minDay]} için özel kampanyalar düşünün.`
+            description: `${dayNames[peakDay]} ile ${dayNames[minDay]} arasında satış adedi açısından <span class="metric-highlight">${((maxDayQuantity / minDayQuantity - 1) * 100).toFixed(0)}%</span> fark var. ${dayNames[minDay]} için özel kampanyalar düşünün.`
         });
     }
     
@@ -775,7 +963,11 @@ export function performTimeAIAnalysis() {
         }
     }
     
-    const workHoursPercent = (workHoursSales / (workHoursSales + offHoursSales) * 100).toFixed(1);
+    // Sıfıra bölme kontrolü
+    const totalSales = workHoursSales + offHoursSales;
+    const workHoursPercent = totalSales > 0 
+        ? (workHoursSales / totalSales * 100).toFixed(1)
+        : '0.0';
     insights.neutral.push({
         title: 'Mesai Saati Dağılımı',
         description: `Satışların <span class="metric-highlight">%${workHoursPercent}</span>'i mesai saatlerinde (09:00-18:00) gerçekleşiyor.`
@@ -791,7 +983,7 @@ export function performTimeAIAnalysis() {
     insights.recommendations.push({
         icon: '📅',
         title: 'Kampanya Zamanlaması',
-        description: `${dayNames[minDay]} günleri için özel kampanyalar düzenleyin. Mevcut satışlar ${dayNames[peakDay]}'ye göre %${((1 - minDaySales / maxDaySales) * 100).toFixed(0)} daha düşük.`
+        description: `${dayNames[minDay]} günleri için özel kampanyalar düzenleyin. Mevcut satış adedi ${dayNames[peakDay]}'ye göre %${((1 - minDayQuantity / maxDayQuantity) * 100).toFixed(0)} daha düşük.`
     });
     
     if (offHoursSales > workHoursSales * 0.3) {
