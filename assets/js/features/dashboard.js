@@ -114,6 +114,8 @@ export async function loadAllYearsData(metadata) {
             safeConsole.log(`🌐 Network'ten yüklenecek yıllar: ${yearsToLoadFromNetwork.join(', ')}`);
             const networkPromises = yearsToLoadFromNetwork.map(year => loadYearData(year, forceReload));
             networkResults = await Promise.all(networkPromises);
+            // NOT: Spinner'ı burada kapatmıyoruz - tüm işlemler bittiğinde fonksiyonun sonunda kapatılacak
+            // Bu şekilde hem cache hem network yükleme durumunda da doğru çalışır
         }
         
         // Cache ve network sonuçlarını birleştir
@@ -349,6 +351,15 @@ export async function loadAllYearsData(metadata) {
             checkLoadingComplete();
         }
         
+        // Tüm işlemler bitti, spinner'ı kapat (cache'den yükleme durumunda da çalışması için)
+        // Network yüklemesi durumunda zaten finally bloğunda kapatılıyor, burada tekrar kapatmak sorun değil
+        if (window.PerformanceOptimizer && window.PerformanceOptimizer.LoadingManager) {
+            const loadingManager = window.PerformanceOptimizer.LoadingManager;
+            // Tüm yıllar bitti, activeOperations'ı sıfırla
+            loadingManager.activeOperations = 0;
+            loadingManager.hide();
+        }
+        
     } catch (error) {
         console.error('Error loading data:', error);
         const dataStatusEl = document.getElementById('dataStatus');
@@ -359,6 +370,12 @@ export async function loadAllYearsData(metadata) {
         const tableContainerError = document.getElementById('tableContainer');
         if (tableContainerError) {
             tableContainerError.innerHTML = '<div class="error">❌ Veri yüklenirken hata oluştu!<br><small>' + error.message + '</small></div>';
+        }
+        // Hata durumunda da spinner'ı kapat
+        if (window.PerformanceOptimizer && window.PerformanceOptimizer.LoadingManager) {
+            const loadingManager = window.PerformanceOptimizer.LoadingManager;
+            loadingManager.activeOperations = 0;
+            loadingManager.hide();
         }
     }
 }

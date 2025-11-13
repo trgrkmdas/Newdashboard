@@ -2001,26 +2001,26 @@ function renderSalespersonTopProducts(data = null, sortColumn = null, sortDirect
     };
     
     let html = `
-        <table style="width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-            <thead style="background: linear-gradient(135deg, #38ef7d 0%, #11998e 100%); color: white;">
+        <table style="width: 100%; border-collapse: collapse; background: rgba(30, 41, 59, 0.6); backdrop-filter: blur(10px); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; overflow: hidden;">
+            <thead style="background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); color: white;">
                 <tr>
-                    <th style="padding: 15px; text-align: left;">#</th>
-                    <th style="padding: 15px; text-align: left; cursor: pointer;" onclick="renderSalespersonTopProducts(null, 'product')">
+                    <th style="padding: 15px; text-align: left; color: white; font-weight: 600;">#</th>
+                    <th style="padding: 15px; text-align: left; cursor: pointer; color: white; font-weight: 600;" onclick="renderSalespersonTopProducts(null, 'product')">
                         Ürün ${getSortIcon('product')}
                     </th>
-                    <th style="padding: 15px; text-align: left; cursor: pointer;" onclick="renderSalespersonTopProducts(null, 'brand')">
+                    <th style="padding: 15px; text-align: left; cursor: pointer; color: white; font-weight: 600;" onclick="renderSalespersonTopProducts(null, 'brand')">
                         Marka ${getSortIcon('brand')}
                     </th>
-                    <th style="padding: 15px; text-align: left; cursor: pointer;" onclick="renderSalespersonTopProducts(null, 'category')">
+                    <th style="padding: 15px; text-align: left; cursor: pointer; color: white; font-weight: 600;" onclick="renderSalespersonTopProducts(null, 'category')">
                         Kategori ${getSortIcon('category')}
                     </th>
-                    <th style="padding: 15px; text-align: right; cursor: pointer;" onclick="renderSalespersonTopProducts(null, 'sales')">
+                    <th style="padding: 15px; text-align: right; cursor: pointer; color: white; font-weight: 600;" onclick="renderSalespersonTopProducts(null, 'sales')">
                         Satış (USD) ${getSortIcon('sales')}
                     </th>
-                    <th style="padding: 15px; text-align: right; cursor: pointer;" onclick="renderSalespersonTopProducts(null, 'qty')">
+                    <th style="padding: 15px; text-align: right; cursor: pointer; color: white; font-weight: 600;" onclick="renderSalespersonTopProducts(null, 'qty')">
                         Miktar ${getSortIcon('qty')}
                     </th>
-                    <th style="padding: 15px; text-align: right; cursor: pointer;" onclick="renderSalespersonTopProducts(null, 'count')">
+                    <th style="padding: 15px; text-align: right; cursor: pointer; color: white; font-weight: 600;" onclick="renderSalespersonTopProducts(null, 'count')">
                         İşlem ${getSortIcon('count')}
                     </th>
                 </tr>
@@ -2033,14 +2033,14 @@ function renderSalespersonTopProducts(data = null, sortColumn = null, sortDirect
         const stats = item[1];
         
         html += `
-            <tr style="border-bottom: 1px solid #eee; ${index % 2 === 0 ? 'background: #f8f9fa;' : ''}">
-                <td style="padding: 12px;">${index + 1}</td>
-                <td style="padding: 12px;"><strong>${product}</strong></td>
-                <td style="padding: 12px;">${stats.brand}</td>
-                <td style="padding: 12px;">${stats.category}</td>
-                <td style="padding: 12px; text-align: right; color: #38ef7d; font-weight: bold;">$${stats.sales.toLocaleString('tr-TR', {minimumFractionDigits: 2})}</td>
-                <td style="padding: 12px; text-align: right;">${stats.qty.toLocaleString('tr-TR', {minimumFractionDigits: 2})}</td>
-                <td style="padding: 12px; text-align: right;">${stats.count}</td>
+            <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.1); color: #e2e8f0; transition: background 0.2s;" onmouseover="this.style.background='rgba(255, 255, 255, 0.05)'" onmouseout="this.style.background='${index % 2 === 0 ? 'rgba(30, 41, 59, 0.3)' : 'transparent'}'">
+                <td style="padding: 12px; color: #e2e8f0;">${index + 1}</td>
+                <td style="padding: 12px; color: #e2e8f0;"><strong>${product}</strong></td>
+                <td style="padding: 12px; color: #e2e8f0;">${stats.brand}</td>
+                <td style="padding: 12px; color: #e2e8f0;">${stats.category}</td>
+                <td style="padding: 12px; text-align: right; color: #10B981; font-weight: bold;">$${stats.sales.toLocaleString('tr-TR', {minimumFractionDigits: 2})}</td>
+                <td style="padding: 12px; text-align: right; color: #e2e8f0;">${stats.qty.toLocaleString('tr-TR', {minimumFractionDigits: 2})}</td>
+                <td style="padding: 12px; text-align: right; color: #e2e8f0;">${stats.count}</td>
             </tr>
         `;
     });

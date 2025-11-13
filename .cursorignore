@@ -50,6 +50,8 @@ docs/
 *.md
 !README.md
 !MODULARIZATION_PROPOSAL.md
+!i.md
+!z.md
 
 # Mac ve sistem dosyaları
 .DS_Store

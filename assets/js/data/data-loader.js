@@ -9,6 +9,7 @@ import { applyDiscountLogic, isDiscountProduct } from './data-processor.js';
 import { getWorkerManager, initWorkerManager } from '../core/worker-manager.js';
 import { getCache, initCache } from '../core/indexeddb-cache.js';
 import { getDataViewManager } from '../core/data-view-manager.js';
+import { StreamingJSONParser } from '../core/streaming-json-parser.js';
 
 // Global state'i metadata-manager'dan al
 let loadedYears = getLoadedYears();
@@ -85,17 +86,23 @@ if (typeof window !== 'undefined') {
 }
 
 /**
- * Yıl verisini yükle (GZIP desteği ile)
+ * Yıl verisini yükle (JSON formatında, sıkıştırma yok)
  */
 export async function loadYearData(year, forceReload = false) {
+    // PERFORMANS LOG: Başlangıç zamanını kaydet
+    const startTime = performance.now();
+    const startMemory = performance.memory ? performance.memory.usedJSHeapSize : 0;
+    
     // AŞAMA 3: Memory cache kontrolü (öncelikli)
     if (!forceReload && loadedYears.has(year) && loadedDataCache[year]) {
-        safeConsole.log(`⏭️ ${year} zaten yüklü, memory cache'den döndürülüyor...`);
+        const cacheHitTime = performance.now() - startTime;
+        safeConsole.log(`⏭️ ${year} zaten yüklü, memory cache'den döndürülüyor... (${cacheHitTime.toFixed(2)}ms)`);
         return loadedDataCache[year];
     }
     
     try {
             safeConsole.log(`📦 ${year} yükleniyor...`);
+            safeConsole.log(`🔍 PERFORMANS DEBUG - ${year}: Başlangıç zamanı: ${startTime.toFixed(2)}ms, Memory: ${(startMemory / 1024 / 1024).toFixed(2)}MB`);
             
             // AŞAMA 3: IndexedDB Cache kontrolü
             const cache = await ensureCache();
@@ -109,6 +116,11 @@ export async function loadYearData(year, forceReload = false) {
                     loadedYears.add(year);
                     setLoadedDataCache(loadedDataCache);
                     setLoadedYears(loadedYears);
+                    
+                    // Cache'den yükleme durumunda da progress güncelle (spinner kapatılmaz, tüm yıllar bittiğinde kapatılacak)
+                    if (window.PerformanceOptimizer && window.PerformanceOptimizer.LoadingManager) {
+                        window.PerformanceOptimizer.LoadingManager.updateProgress(100, `✅ ${year} yüklendi!`, `${cachedData?.details?.length || 0} kayıt yüklendi`);
+                    }
                     
                     return cachedData;
                 }
@@ -124,7 +136,11 @@ export async function loadYearData(year, forceReload = false) {
             }
             
             const version = getDailyVersion();
-            const dataUrl = `data-${year}.json.gz?v=${version}`;
+            const dataUrl = `data-${year}.json?v=${version}`;
+            
+            // PERFORMANS LOG: Fetch başlangıcı
+            const fetchStartTime = performance.now();
+            safeConsole.log(`🔍 PERFORMANS DEBUG - ${year}: Fetch başlatılıyor: ${dataUrl}`);
             
             let response;
             try {
@@ -137,6 +153,12 @@ export async function loadYearData(year, forceReload = false) {
                 throw new Error(`${year} verisi yüklenemedi: ${fetchError.message}`);
             }
             
+            // PERFORMANS LOG: Fetch tamamlandı
+            const fetchEndTime = performance.now();
+            const fetchDuration = fetchEndTime - fetchStartTime;
+            const contentLength = response.headers.get('content-length');
+            safeConsole.log(`🔍 PERFORMANS DEBUG - ${year}: Fetch tamamlandı (${fetchDuration.toFixed(2)}ms), Boyut: ${contentLength ? (contentLength / 1024 / 1024).toFixed(2) + 'MB' : 'bilinmiyor'}`);
+            
             // Response kontrolü
             const contentType = response.headers.get('content-type') || '';
             if (!response.ok) {
@@ -148,75 +170,199 @@ export async function loadYearData(year, forceReload = false) {
             
             // Progress: Dosya indirildi
             if (window.PerformanceOptimizer && window.PerformanceOptimizer.LoadingManager) {
-                window.PerformanceOptimizer.LoadingManager.updateProgress(15, `📦 ${year} verisi yükleniyor...`, 'Dosya indirildi, açılıyor...');
+                window.PerformanceOptimizer.LoadingManager.updateProgress(15, `📦 ${year} verisi yükleniyor...`, 'Dosya indirildi, parse ediliyor...');
             }
             
-            // ArrayBuffer olarak al
+            // PERFORMANS LOG: ArrayBuffer başlangıcı
+            const arrayBufferStartTime = performance.now();
             const arrayBuffer = await response.arrayBuffer();
+            const arrayBufferEndTime = performance.now();
+            const arrayBufferDuration = arrayBufferEndTime - arrayBufferStartTime;
+            safeConsole.log(`🔍 PERFORMANS DEBUG - ${year}: ArrayBuffer oluşturuldu (${arrayBufferDuration.toFixed(2)}ms), Boyut: ${(arrayBuffer.byteLength / 1024 / 1024).toFixed(2)}MB`);
             
-            // AŞAMA 2: Web Worker kullanımı (gerçek paralellik)
+            // 🚀 HİZMET 1: Streaming JSON Parser ile Progressive UI Updates
             let yearData;
-            
-            // Progress callback
-            const onProgress = (progress, message) => {
-                if (window.PerformanceOptimizer && window.PerformanceOptimizer.LoadingManager) {
-                    // Progress'i 15-90 arasına map et
-                    const mappedProgress = 15 + (progress * 0.75); // 15-90 arası
-                    window.PerformanceOptimizer.LoadingManager.updateProgress(
-                        mappedProgress,
-                        `📦 ${year} verisi yükleniyor...`,
-                        message
-                    );
-                }
-            };
+            const parseStartTime = performance.now();
             
             try {
-                // Worker Manager'ı kullan (eager initialization ile zaten başlatılmış olmalı)
                 const workerManager = await ensureWorkerManager();
                 
                 if (workerManager && workerManager.isAvailable()) {
-                    // Worker kullanılabilir - gerçek paralellik
-                    safeConsole.log(`🚀 ${year} Worker ile işleniyor...`);
-                    yearData = await workerManager.decompressAndParse(arrayBuffer, onProgress);
-                    safeConsole.log(`✅ ${year} Worker ile işlendi`);
+                    // Worker kullanılabilir - Streaming JSON Parser ile parse et
+                    safeConsole.log(`🚀 ${year} Streaming JSON Parser ile Worker'da parse ediliyor...`);
+                    
+                    // Progressive UI Updates için callback'ler
+                    const onProgress = (progress, message) => {
+                        if (window.PerformanceOptimizer && window.PerformanceOptimizer.LoadingManager) {
+                            // Progress'i 15-90 arasına map et
+                            const mappedProgress = 15 + (progress * 0.75); // 15-90 arası
+                            window.PerformanceOptimizer.LoadingManager.updateProgress(
+                                mappedProgress,
+                                `📦 ${year} verisi yükleniyor...`,
+                                message
+                            );
+                        }
+                    };
+                    
+                    // Progressive UI Updates için chunk callback
+                    const onChunk = (chunkData, chunkIndex, totalChunks, processedItems) => {
+                        // Her chunk tamamlandığında UI'ı güncelle (non-blocking)
+                        if (window.PerformanceOptimizer && window.PerformanceOptimizer.LoadingManager) {
+                            const chunkProgress = 15 + ((processedItems / (totalChunks * 1000)) * 75); // Tahmini
+                            window.PerformanceOptimizer.LoadingManager.updateProgress(
+                                Math.min(chunkProgress, 90),
+                                `📦 ${year} verisi yükleniyor...`,
+                                `Chunk ${chunkIndex + 1}/${totalChunks} (${processedItems.toLocaleString()} kayıt)`
+                            );
+                        }
+                        
+                        // 🎯 PROGRESSIVE UI UPDATES: Anlık kullanıcı feedback'i
+                        // Her chunk'ta UI'ı güncelle, ama performans için throttling yap
+                        if (chunkIndex % 3 === 0) { // Her 3 chunk'ta bir UI update (daha sık)
+                            requestAnimationFrame(() => {
+                                // UI'ı bloklamadan güncelle
+                                const statusEl = document.getElementById('dataStatus');
+                                if (statusEl) {
+                                    // Progress bar da ekle
+                                    const progressBar = document.getElementById('dataProgressBar');
+                                    const progressPercent = Math.round((processedItems / (totalChunks * 1000)) * 100);
+                                    
+                                    if (progressBar) {
+                                        progressBar.style.width = `${Math.min(progressPercent, 90)}%`;
+                                        progressBar.textContent = `${progressPercent}%`;
+                                    } else {
+                                        // Progress bar yoksa oluştur
+                                        const newProgressBar = document.createElement('div');
+                                        newProgressBar.id = 'dataProgressBar';
+                                        newProgressBar.style.cssText = `
+                                            width: ${Math.min(progressPercent, 90)}%;
+                                            height: 4px;
+                                            background: linear-gradient(90deg, #007bff, #28a745);
+                                            border-radius: 2px;
+                                            margin-top: 4px;
+                                            font-size: 10px;
+                                            color: white;
+                                            text-align: center;
+                                            line-height: 4px;
+                                        `;
+                                        newProgressBar.textContent = `${progressPercent}%`;
+                                        statusEl.appendChild(newProgressBar);
+                                    }
+                                    
+                                    statusEl.innerHTML = `<span class="status-badge loading">📦 ${year}: ${processedItems.toLocaleString()} kayıt...</span>`;
+                                    
+                                    // Progress bar'ı tekrar ekle
+                                    const reAddedBar = document.getElementById('dataProgressBar');
+                                    if (reAddedBar) {
+                                        statusEl.appendChild(reAddedBar);
+                                    }
+                                }
+                                
+                                // 🎯 REAL-TIME METRICS: Performans göstergeleri
+                                const metricsEl = document.getElementById('realTimeMetrics');
+                                if (metricsEl) {
+                                    const currentTime = performance.now();
+                                    const elapsedSeconds = (currentTime - parseStartTime) / 1000;
+                                    const recordsPerSecond = Math.round(processedItems / elapsedSeconds);
+                                    
+                                    metricsEl.innerHTML = `
+                                        <div style="font-size: 11px; color: #666;">
+                                            ⚡ ${recordsPerSecond.toLocaleString()} kayıt/saniye |
+                                            📊 ${processedItems.toLocaleString()} işlendi |
+                                            ⏱️ ${elapsedSeconds.toFixed(1)}s
+                                        </div>
+                                    `;
+                                } else {
+                                    // Metrics element'i yoksa oluştur
+                                    const newMetricsEl = document.createElement('div');
+                                    newMetricsEl.id = 'realTimeMetrics';
+                                    newMetricsEl.style.cssText = `
+                                        font-size: 11px;
+                                        color: #666;
+                                        margin-top: 2px;
+                                        text-align: center;
+                                    `;
+                                    
+                                    const currentTime = performance.now();
+                                    const elapsedSeconds = (currentTime - parseStartTime) / 1000;
+                                    const recordsPerSecond = Math.round(processedItems / elapsedSeconds);
+                                    
+                                    newMetricsEl.innerHTML = `
+                                        <div style="font-size: 11px; color: #666;">
+                                            ⚡ ${recordsPerSecond.toLocaleString()} kayıt/saniye |
+                                            📊 ${processedItems.toLocaleString()} işlendi |
+                                            ⏱️ ${elapsedSeconds.toFixed(1)}s
+                                        </div>
+                                    `;
+                                    
+                                    const statusEl = document.getElementById('dataStatus');
+                                    if (statusEl && statusEl.parentNode) {
+                                        statusEl.parentNode.insertBefore(newMetricsEl, statusEl.nextSibling);
+                                    }
+                                }
+                            });
+                        }
+                    };
+                    
+                    // Worker'da streaming parse et
+                    yearData = await workerManager.decompressAndParseStreaming(arrayBuffer, {
+                        onProgress,
+                        onChunk,
+                        chunkSize: 10000, // Her chunk 10,000 kayıt
+                        enableProgressiveUI: true
+                    });
+                    
+                    const parseEndTime = performance.now();
+                    const parseDuration = parseEndTime - parseStartTime;
+                    safeConsole.log(`✅ ${year} Streaming JSON Parser ile Worker'da parse edildi (${parseDuration.toFixed(2)}ms)`);
+                    
                 } else {
-                    // Worker kullanılamıyor, fallback kullan
-                    throw new Error('Worker kullanılamıyor, fallback kullanılacak');
-                }
-            } catch (workerError) {
-                safeConsole.warn(`⚠️ Worker hatası (${year}), fallback kullanılıyor:`, workerError);
-                
-                // Fallback: Main thread'de işle
-                const uint8Array = new Uint8Array(arrayBuffer);
-                const isGzip = uint8Array.length >= 2 && uint8Array[0] === 0x1F && uint8Array[1] === 0x8B;
-                
-                if (isGzip && typeof pako !== 'undefined') {
-                    const decompressed = pako.ungzip(uint8Array, { to: 'string' });
-                    const trimmed = decompressed.trim();
+                    // Worker kullanılamıyor, fallback (main thread'de streaming parse)
+                    safeConsole.warn(`⚠️ Worker kullanılamıyor (${year}), main thread'de streaming parse ediliyor...`);
+                    
+                    const decoder = new TextDecoder('utf-8');
+                    const jsonText = decoder.decode(new Uint8Array(arrayBuffer));
+                    const trimmed = jsonText.trim();
+                    
+                    // HTML kontrolü (404 sayfası olabilir)
                     if (trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html') || trimmed.startsWith('<HTML')) {
                         throw new Error(`${year} verisi bulunamadı - HTML sayfası döndü (404)`);
                     }
-                    yearData = JSON.parse(decompressed);
-                } else if (!isGzip) {
-                    const decoder = new TextDecoder('utf-8');
-                    yearData = JSON.parse(decoder.decode(uint8Array));
-                } else {
-                    throw new Error('GZIP açma kütüphanesi yüklenmedi. Lütfen sayfayı yenileyin.');
+                    
+                    // Main thread'de streaming parser kullan (fallback)
+                    const streamingParser = new StreamingJSONParser({
+                        chunkSize: 10000,
+                        onProgress: (progress, processed, total) => {
+                            if (window.PerformanceOptimizer && window.PerformanceOptimizer.LoadingManager) {
+                                const mappedProgress = 15 + (progress * 0.75);
+                                window.PerformanceOptimizer.LoadingManager.updateProgress(
+                                    mappedProgress,
+                                    `📦 ${year} verisi yükleniyor...`,
+                                    `Main thread: ${processed.toLocaleString()}/${total.toLocaleString()} kayıt`
+                                );
+                            }
+                            
+                            // Progressive UI Updates (main thread fallback)
+                            if (processed % 50000 === 0) { // Her 50k kayıtta bir UI update
+                                requestAnimationFrame(() => {
+                                    const statusEl = document.getElementById('dataStatus');
+                                    if (statusEl) {
+                                        statusEl.innerHTML = `<span class="status-badge loading">📦 ${year}: ${processed.toLocaleString()} kayıt...</span>`;
+                                    }
+                                });
+                            }
+                        }
+                    });
+                    
+                    yearData = await streamingParser.parse(jsonText);
+                    
+                    const parseEndTime = performance.now();
+                    const parseDuration = parseEndTime - parseStartTime;
+                    safeConsole.log(`⚠️ ${year} Main thread'de streaming parse edildi (${parseDuration.toFixed(2)}ms)`);
                 }
+            } catch (parseError) {
+                throw new Error(`${year} verisi parse edilemedi: ${parseError.message}`);
             }
-            
-            // HTML kontrolü (Worker kullanıldığında bu kontrol worker'da yapılmış olabilir)
-            // Worker kullanıldığında yearData zaten parse edilmiş obje olacak
-            if (yearData && typeof yearData === 'string') {
-                const trimmed = yearData.trim();
-                if (trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html') || trimmed.startsWith('<HTML')) {
-                    throw new Error(`${year} verisi bulunamadı - HTML sayfası döndü (404)`);
-                }
-            }
-            
-            // MEMORY CLEANUP: Worker kullanıldığında ArrayBuffer zaten transfer edilmiş olacak
-            // Fallback kullanıldığında memory cleanup yapılabilir
-            // Worker kullanımı memory management'ı otomatik olarak optimize eder
             
             // Progress: Parse tamamlandı
             if (window.PerformanceOptimizer && window.PerformanceOptimizer.LoadingManager) {
@@ -227,6 +373,13 @@ export async function loadYearData(year, forceReload = false) {
             if (!yearData?.details) {
                 safeConsole.warn(`⚠️ ${year} verisi boş veya geçersiz`);
             }
+            
+            // PERFORMANS LOG: Tamamlanma zamanı
+            const endTime = performance.now();
+            const totalDuration = endTime - startTime;
+            const endMemory = performance.memory ? performance.memory.usedJSHeapSize : 0;
+            const memoryIncrease = endMemory - startMemory;
+            safeConsole.log(`🔍 PERFORMANS DEBUG - ${year}: Tamamlandı (${totalDuration.toFixed(2)}ms), Memory artışı: ${(memoryIncrease / 1024 / 1024).toFixed(2)}MB, Toplam Memory: ${(endMemory / 1024 / 1024).toFixed(2)}MB`);
             
             // AŞAMA 3: IndexedDB Cache'e kaydet (background'da - blocking olmaz)
             if (cache && cache.isSupported) {
@@ -246,23 +399,18 @@ export async function loadYearData(year, forceReload = false) {
             // Progress: Tamamlandı
             if (window.PerformanceOptimizer && window.PerformanceOptimizer.LoadingManager) {
                 window.PerformanceOptimizer.LoadingManager.updateProgress(100, `✅ ${year} yüklendi!`, `${yearData?.details?.length || 0} kayıt yüklendi`);
-                // Progress indicator'ı kapat (kullanıcı "tamamlandı" mesajını görebilsin)
-                setTimeout(() => {
-                    if (window.PerformanceOptimizer && window.PerformanceOptimizer.LoadingManager) {
-                        // Sadece eğer başka aktif işlem yoksa kapat
-                        if (window.PerformanceOptimizer.LoadingManager.activeOperations <= 1) {
-                            window.PerformanceOptimizer.LoadingManager.hide();
-                        }
-                    }
-                }, 1000); // 1 saniye bekle - kullanıcı mesajı görebilsin
+                // NOT: Spinner'ı burada kapatmıyoruz - tüm yıllar bittiğinde loadAllYearsData içinde kapatılacak
+                // Bu şekilde paralel yükleme durumunda da doğru çalışır
             }
             
             return yearData;
             
         } catch (error) {
-            // Hata durumunda da progress indicator'ı kapat
+            // Hata durumunda activeOperations'ı azalt (hide() çağrılmayacak, loadAllYearsData içinde kapatılacak)
             if (window.PerformanceOptimizer && window.PerformanceOptimizer.LoadingManager) {
-                window.PerformanceOptimizer.LoadingManager.hide();
+                // activeOperations'ı manuel olarak azalt (hide() çağrılmadan)
+                window.PerformanceOptimizer.LoadingManager.activeOperations = Math.max(0, 
+                    window.PerformanceOptimizer.LoadingManager.activeOperations - 1);
             }
             console.error(`❌ ${year} yükleme hatası:`, error);
             throw error;
@@ -302,14 +450,33 @@ export async function loadInventoryData() {
     if (inventoryContent) inventoryContent.style.display = 'none';
     
     try {
-        const response = await fetch('inventory.json.gz');
+        const response = await fetch('inventory.json');
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
-        const compressedData = await response.arrayBuffer();
-        const decompressedData = pako.ungzip(new Uint8Array(compressedData), { to: 'string' });
-        const parsedData = JSON.parse(decompressedData);
+        // ArrayBuffer olarak al (gzip kontrolü için)
+        const arrayBuffer = await response.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        
+        // Gzip kontrolü (ilk 2 byte: 0x1F 0x8B)
+        const isGzip = uint8Array.length >= 2 && uint8Array[0] === 0x1F && uint8Array[1] === 0x8B;
+        
+        let parsedData;
+        if (isGzip) {
+            // Gzip formatında - aç
+            if (typeof pako !== 'undefined') {
+                const decompressed = pako.ungzip(uint8Array, { to: 'string' });
+                parsedData = JSON.parse(decompressed);
+            } else {
+                throw new Error('GZIP açma kütüphanesi yüklenmedi. Lütfen sayfayı yenileyin.');
+            }
+        } else {
+            // JSON formatında - direkt parse
+            const decoder = new TextDecoder('utf-8');
+            const jsonText = decoder.decode(uint8Array);
+            parsedData = JSON.parse(jsonText);
+        }
         
         let inventoryData;
         if (parsedData.inventory && Array.isArray(parsedData.inventory)) {
@@ -341,45 +508,33 @@ export async function loadPaymentData() {
     safeConsole.log('💳 Ödeme verileri yükleniyor...');
     
     try {
-        const response = await fetch('payments.json.gz');
+        const response = await fetch('payments.json');
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
+        // ArrayBuffer olarak al (gzip kontrolü için)
         const arrayBuffer = await response.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
         
-        // GZIP'i aç
-        let decompressed;
-        try {
-            const uint8Array = new Uint8Array(arrayBuffer);
-            const isGzip = uint8Array.length >= 2 && uint8Array[0] === 0x1F && uint8Array[1] === 0x8B;
-            
-            if (isGzip && typeof pako !== 'undefined') {
-                try {
-                    decompressed = pako.ungzip(uint8Array, { to: 'string' });
-                } catch (gzipError) {
-                    safeConsole.warn('⚠️ GZIP açma başarısız (payments), direkt text olarak deneniyor...', gzipError);
-                    const decoder = new TextDecoder('utf-8');
-                    decompressed = decoder.decode(uint8Array);
-                }
-            } else if (!isGzip) {
-                safeConsole.log('⚠️ payments dosyası GZIP formatında değil, direkt text olarak okunuyor...');
-                const decoder = new TextDecoder('utf-8');
-                decompressed = decoder.decode(uint8Array);
+        // Gzip kontrolü (ilk 2 byte: 0x1F 0x8B)
+        const isGzip = uint8Array.length >= 2 && uint8Array[0] === 0x1F && uint8Array[1] === 0x8B;
+        
+        let paymentData;
+        if (isGzip) {
+            // Gzip formatında - aç
+            if (typeof pako !== 'undefined') {
+                const decompressed = pako.ungzip(uint8Array, { to: 'string' });
+                paymentData = JSON.parse(decompressed);
             } else {
                 throw new Error('GZIP açma kütüphanesi yüklenmedi. Lütfen sayfayı yenileyin.');
             }
-        } catch (e) {
-            safeConsole.error('❌ GZIP açma hatası (payments):', e);
-            try {
-                const decoder = new TextDecoder('utf-8');
-                decompressed = decoder.decode(arrayBuffer);
-            } catch (fallbackError) {
-                throw new Error(`Ödeme verileri açılamadı: ${e.message}`);
-            }
+        } else {
+            // JSON formatında - direkt parse
+            const decoder = new TextDecoder('utf-8');
+            const jsonText = decoder.decode(uint8Array);
+            paymentData = JSON.parse(jsonText);
         }
-        
-        const paymentData = JSON.parse(decompressed);
         safeConsole.log(`✅ Ödeme verileri yüklendi: ${paymentData.payments?.length || 0} kayıt`);
         
         // Window objesine otomatik atama
@@ -1071,7 +1226,18 @@ export async function loadRemainingYears(skipYear) {
             return null;
         }));
     
-    const yearResults = await Promise.all(yearPromises);
+    let yearResults = [];
+    try {
+        yearResults = await Promise.all(yearPromises);
+    } finally {
+        // Tüm yıllar yüklendikten sonra (başarılı veya hatalı) spinner'ı kapat
+        if (window.PerformanceOptimizer && window.PerformanceOptimizer.LoadingManager) {
+            const loadingManager = window.PerformanceOptimizer.LoadingManager;
+            // Tüm yıllar bitti, activeOperations'ı sıfırla
+            loadingManager.activeOperations = 0;
+            loadingManager.hide();
+        }
+    }
     
     // loadedYears'i tekrar güncelle (loadYearData içinde güncellenmiş olabilir)
     loadedYears = getLoadedYears();
@@ -1219,23 +1385,20 @@ let dataStatusCache = { totalUSD: 0, uniqueDates: null, uniqueInvoices: 0, sales
  * Yıl toggle'larını initialize et
  */
 export function initializeYearToggles(availableYears) {
-    // DÜZELTME: Varsayılan olarak 2025, 2024 ve 2023 aktif (eğer mevcutlarsa)
+    // Varsayılan olarak sadece 2025 aktif (eğer mevcutsa)
     const yearsToSelect = [];
     const availableYearsStr = availableYears.map(y => y.toString());
     
-    // 2025, 2024, 2023'ü kontrol et ve varsa ekle
-    ['2025', '2024', '2023'].forEach(year => {
-        if (availableYearsStr.includes(year)) {
-            yearsToSelect.push(year);
-        }
-    });
+    // Sadece 2025'i kontrol et ve varsa ekle
+    if (availableYearsStr.includes('2025')) {
+        yearsToSelect.push('2025');
+    }
     
-    // Eğer hiçbiri yoksa, en güncel yılı seç (fallback)
+    // Eğer 2025 yoksa, en güncel yılı seç (fallback)
     if (yearsToSelect.length === 0 && availableYears.length > 0) {
         const latestYear = (availableYears
             .map(y => y.toString())
-            .sort((a,b) => parseInt(a) - parseInt(b))
-            .pop());
+            .sort((a,b) => parseInt(b) - parseInt(a))[0]); // En yeni yıl (büyükten küçüğe)
         yearsToSelect.push(latestYear);
     }
     
@@ -1442,53 +1605,119 @@ export async function loadYearDataAndMergeOptimized(year) {
             return;
         }
         
-        // Verileri işle (chunk'lara bölerek, non-blocking - PERFORMANS OPTİMİZASYONU)
-        // INP ve FID performansı için chunk size küçültüldü ve delay artırıldı
-        const chunkSize = 3000; // 5000 → 3000 (INP/FID iyileştirme: daha küçük chunk'lar, daha responsive)
+        // 🎯 VERİ PARÇALAMA (CHUNKING) STRATEJİSİ - Optimize edilmiş
+        // Memory kullanımını optimize etmek ve UI'i responsive tutmak için
+        const totalRecords = yearData.details.length;
+        const chunkSize = Math.min(2000, Math.max(500, Math.floor(totalRecords / 20))); // Dinamik chunk boyutu
         const chunks = [];
-        for (let i = 0; i < yearData.details.length; i += chunkSize) {
+        
+        // Progress tracking için değişkenler
+        let processedRecords = 0;
+        let lastProgressUpdate = 0;
+        
+        safeConsole.log(`🎯 Chunking stratejisi: ${totalRecords.toLocaleString()} kayıt, ${chunkSize} kayıt/chunk, tahminen ${Math.ceil(totalRecords / chunkSize)} chunk`);
+        
+        // Veriyi chunk'lara böl
+        for (let i = 0; i < totalRecords; i += chunkSize) {
             chunks.push(yearData.details.slice(i, i + chunkSize));
         }
         
         let processedYearData = [];
-        // Veri işleme için requestIdleCallback kullan (optimize edilmiş - daha kısa timeout)
-        const processChunk = (chunkIndex) => {
+        
+        // 🚀 OPTİMİZE EDİLMİŞ CHUNK İŞLEME - Progressive UI Updates ile
+        const processChunk = async (chunkIndex) => {
             return new Promise((resolve) => {
-                if (typeof requestIdleCallback !== 'undefined') {
-                    // Modern tarayıcılar için requestIdleCallback (optimize edilmiş timeout)
-                    requestIdleCallback(() => {
-                        const chunk = chunks[chunkIndex];
-                        const processedChunk = chunk.map(item => applyDiscountLogic(item));
-                        // STACK OVERFLOW ÖNLEME: Spread yerine loop ile ekle
-                        for (let i = 0; i < processedChunk.length; i++) {
-                            processedYearData.push(processedChunk[i]);
-                        }
-                        resolve();
-                    }, { timeout: 100 }); // Optimize edilmiş: 200ms → 100ms
-                } else {
-                    // Fallback: setTimeout
-                    setTimeout(() => {
-                        const chunk = chunks[chunkIndex];
-                        const processedChunk = chunk.map(item => applyDiscountLogic(item));
-                        // STACK OVERFLOW ÖNLEME: Spread yerine loop ile ekle
-                        for (let i = 0; i < processedChunk.length; i++) {
-                            processedYearData.push(processedChunk[i]);
-                        }
-                        resolve();
-                    }, 50); // Optimize edilmiş: 100ms → 50ms
+                const chunk = chunks[chunkIndex];
+                
+                // Progressive UI Updates için timing
+                const processStartTime = performance.now();
+                
+                // Chunk'ı işle (applyDiscountLogic)
+                const processedChunk = chunk.map(item => applyDiscountLogic(item));
+                
+                // Memory efficient ekleme (spread operator yerine)
+                for (let i = 0; i < processedChunk.length; i++) {
+                    processedYearData.push(processedChunk[i]);
                 }
+                
+                processedRecords += processedChunk.length;
+                
+                // 🎯 PROGRESSIVE UI UPDATES - Her chunk'ta güncelle
+                const now = performance.now();
+                const shouldUpdateUI = (now - lastProgressUpdate) > 100; // Throttle: 100ms'de bir
+                
+                if (shouldUpdateUI || chunkIndex === chunks.length - 1) {
+                    lastProgressUpdate = now;
+                    
+                    requestAnimationFrame(() => {
+                        const progress = Math.round((processedRecords / totalRecords) * 100);
+                        const elapsedMs = now - processStartTime;
+                        const recordsPerSecond = Math.round(processedChunk.length / (elapsedMs / 1000));
+                        
+                        // Status güncelle
+                        const statusEl = document.getElementById('dataStatus');
+                        if (statusEl) {
+                            statusEl.innerHTML = `<span class="status-badge loading">📦 ${year}: ${processedRecords.toLocaleString()}/${totalRecords.toLocaleString()} kayıt...</span>`;
+                        }
+                        
+                        // Progress bar güncelle
+                        const progressBar = document.getElementById('dataProgressBar');
+                        if (progressBar) {
+                            progressBar.style.width = `${progress}%`;
+                            progressBar.textContent = `${progress}%`;
+                        }
+                        
+                        // Real-time metrics güncelle
+                        const metricsEl = document.getElementById('realTimeMetrics');
+                        if (metricsEl) {
+                            const totalElapsedSeconds = (now - processStartTime) / 1000;
+                            const avgRecordsPerSecond = Math.round(processedRecords / totalElapsedSeconds);
+                            
+                            metricsEl.innerHTML = `
+                                <div style="font-size: 11px; color: #666;">
+                                    📊 Chunk ${chunkIndex + 1}/${chunks.length} |
+                                    ⚡ ${recordsPerSecond.toLocaleString()} kayıt/s (chunk) |
+                                    📈 ${avgRecordsPerSecond.toLocaleString()} kayıt/s (ortalama) |
+                                    📦 ${processedRecords.toLocaleString()}/${totalRecords.toLocaleString()}
+                                </div>
+                            `;
+                        }
+                        
+                        // Console log (her 5 chunk'ta bir)
+                        if (chunkIndex % 5 === 0) {
+                            safeConsole.log(`📊 ${year} chunk işleniyor: ${progress}% (${chunkIndex + 1}/${chunks.length}), ⚡ ${recordsPerSecond} kayıt/s`);
+                        }
+                    });
+                }
+                
+                // Küçük bir delay ile UI'ın güncellenmesine izin ver
+                setTimeout(resolve, 1);
             });
         };
         
-        // Chunk'ları sırayla işle (async, non-blocking)
-        for (let i = 0; i < chunks.length; i++) {
-            await processChunk(i);
-            // Progress göstergesi (büyük veriler için)
-            if (chunks.length > 5 && i % 5 === 0) {
-                const progress = Math.round((i / chunks.length) * 100);
-                safeConsole.log(`📊 ${year} işleniyor: %${progress}`);
+        // 🚀 PARALEL CHUNK İŞLEME (kontrollü) - 2-3 chunk paralel
+        const maxParallelChunks = Math.min(3, chunks.length);
+        const chunkPromises = [];
+        
+        for (let i = 0; i < chunks.length; i += maxParallelChunks) {
+            // Bu turdaki chunk'ları paralel olarak işle
+            const currentBatchPromises = [];
+            
+            for (let j = 0; j < maxParallelChunks && (i + j) < chunks.length; j++) {
+                const chunkIndex = i + j;
+                currentBatchPromises.push(processChunk(chunkIndex));
+            }
+            
+            // Bu batch tamamlandıktan sonra sonraki batch'e geç
+            await Promise.all(currentBatchPromises);
+            
+            // Memory garbage collection için kısa bir bekleme
+            if (i % (maxParallelChunks * 5) === 0) {
+                await new Promise(resolve => setTimeout(resolve, 10));
             }
         }
+        
+        safeConsole.log(`✅ ${year} chunking tamamlandı: ${processedRecords.toLocaleString()} kayıt işlendi`);
         
         // Mevcut verilere ekle (async, non-blocking)
         // STACK OVERFLOW ÖNLEME: Spread operator yerine loop ile ekle (büyük array'lerde güvenli)

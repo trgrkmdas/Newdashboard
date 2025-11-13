@@ -19,7 +19,7 @@ const DB_NAME = 'ZuhalMusicCache';
 const DB_VERSION = 1;
 const STORE_NAME = 'parsedData';
 const CACHE_VERSION_KEY = 'cacheVersion';
-const COMPRESSION_LEVEL = 1; // Düşük sıkıştırma (level 1) - hızlı decompression
+const COMPRESSION_LEVEL = 0; // Sıkıştırma kapalı (0 = sıkıştırma yok, daha hızlı)
 
 class IndexedDBCache {
     constructor() {
@@ -76,7 +76,8 @@ class IndexedDBCache {
         try {
             const cacheKey = `yearData-${year}`;
             // Cache version: günlük versiyon + compression level (level değiştiğinde cache yenilenecek)
-            const version = `${getDailyVersion()}-cl${COMPRESSION_LEVEL}`;
+            // NOT: COMPRESSION_LEVEL=0 artık, eski sıkıştırılmış cache'ler kullanılmayacak
+            const version = `${getDailyVersion()}-nocomp`;
             
             return new Promise((resolve, reject) => {
                 const transaction = this.db.transaction([STORE_NAME], 'readonly');
@@ -155,11 +156,16 @@ class IndexedDBCache {
             return {};
         }
         
+        // PERFORMANS LOG: Batch cache başlangıcı
+        const startTime = performance.now();
+        const startMemory = performance.memory ? performance.memory.usedJSHeapSize : 0;
+        safeConsole.log(`🔍 PERFORMANS DEBUG - IndexedDB Batch Get: ${years.length} yıl isteniyor, Memory: ${(startMemory / 1024 / 1024).toFixed(2)}MB`);
+        
         try {
             // Cache version: günlük versiyon + compression level (level değiştiğinde cache yenilenecek)
-            const version = `${getDailyVersion()}-cl${COMPRESSION_LEVEL}`;
+            // NOT: COMPRESSION_LEVEL=0 artık, eski sıkıştırılmış cache'ler kullanılmayacak
+            const version = `${getDailyVersion()}-nocomp`;
             const cacheKeys = years.map(year => `yearData-${year}`);
-            const startTime = performance.now();
             
             // OPTİMİZASYON: IndexedDB'den okuma işlemini optimize et
             // Transaction'ı daha verimli kullan ve request'leri optimize et
@@ -174,8 +180,14 @@ class IndexedDBCache {
                 let completed = 0;
                 const maxAge = 24 * 60 * 60 * 1000; // 24 saat
                 
+                // PERFORMANS LOG: Transaction başlangıcı
+                safeConsole.log(`🔍 PERFORMANS DEBUG - IndexedDB Transaction başlatılıyor...`);
+                
                 // Transaction'ın tamamlanmasını bekle (tüm request'ler bitene kadar)
                 transaction.oncomplete = () => {
+                    const transactionEndTime = performance.now();
+                    const transactionDuration = transactionEndTime - readStartTime;
+                    safeConsole.log(`🔍 PERFORMANS DEBUG - IndexedDB Transaction tamamlandı (${transactionDuration.toFixed(2)}ms)`);
                     resolve(rawData);
                 };
                 
@@ -188,9 +200,12 @@ class IndexedDBCache {
                 // OPTİMİZASYON: Request'leri hemen başlat (sıralı değil, paralel)
                 cacheKeys.forEach((cacheKey, index) => {
                     const year = years[index];
+                    const requestStartTime = performance.now();
                     const request = store.get(cacheKey);
                     
                     request.onsuccess = () => {
+                        const requestEndTime = performance.now();
+                        const requestDuration = requestEndTime - requestStartTime;
                         const result = request.result;
                         
                         if (result) {
@@ -204,12 +219,17 @@ class IndexedDBCache {
                                         data: result.data,
                                         compressed: result.compressed || false
                                     };
+                                    safeConsole.log(`🔍 PERFORMANS DEBUG - Cache hit: ${year} (${requestDuration.toFixed(2)}ms)`);
                                 } else {
+                                    safeConsole.log(`🔍 PERFORMANS DEBUG - Cache expired: ${year} (${requestDuration.toFixed(2)}ms)`);
                                     this.delete(cacheKey).catch(() => {});
                                 }
                             } else {
+                                safeConsole.log(`🔍 PERFORMANS DEBUG - Cache version mismatch: ${year} (${requestDuration.toFixed(2)}ms)`);
                                 this.delete(cacheKey).catch(() => {});
                             }
+                        } else {
+                            safeConsole.log(`🔍 PERFORMANS DEBUG - Cache miss: ${year} (${requestDuration.toFixed(2)}ms)`);
                         }
                         
                         completed++;
@@ -221,7 +241,9 @@ class IndexedDBCache {
                     };
                     
                     request.onerror = () => {
-                        safeConsole.warn(`⚠️ Cache okuma hatası (${year}):`, request.error);
+                        const requestEndTime = performance.now();
+                        const requestDuration = requestEndTime - requestStartTime;
+                        safeConsole.warn(`⚠️ Cache okuma hatası (${year}): ${requestDuration.toFixed(2)}ms`, request.error);
                         completed++;
                         // Hata olsa bile devam et
                         if (completed === cacheKeys.length && transaction.readyState === 'done') {
@@ -231,145 +253,19 @@ class IndexedDBCache {
                 });
             });
             
-            // Şimdi sıkıştırılmış verileri Worker'da paralel aç
-            // Her yıl için ayrı worker instance'ı oluştur (gerçek paralellik)
-            const decompressStartTime = performance.now();
-            const decompressPromises = [];
+            // PERFORMANS OPTİMİZASYONU: Artık sıkıştırma yok, direkt veriyi kullan
             const results = {};
-            const workers = [];
-            const decompressTimes = {}; // Her yıl için süre ölçümü
             
             for (const [year, rawData] of Object.entries(rawResults)) {
+                // Artık sıkıştırma yok, direkt data'yı kullan
                 if (rawData.compressed) {
-                    // Her yıl için ayrı worker oluştur (gerçek paralellik)
-                    if (typeof Worker !== 'undefined') {
-                        try {
-                            const yearDecompressStart = performance.now();
-                            
-                            // Uint8Array'i ArrayBuffer'a çevir (her worker için kopya oluştur)
-                            const uint8Array = rawData.data instanceof Uint8Array 
-                                ? rawData.data 
-                                : new Uint8Array(rawData.data);
-                            
-                            // ArrayBuffer kopyası oluştur (transfer için)
-                            const arrayBufferCopy = uint8Array.buffer.slice(
-                                uint8Array.byteOffset,
-                                uint8Array.byteOffset + uint8Array.byteLength
-                            );
-                            
-                            // Fallback için uint8Array kopyası (worker hatası durumunda)
-                            const uint8ArrayCopy = new Uint8Array(uint8Array);
-                            
-                            // Yeni worker instance'ı oluştur
-                            const worker = new Worker('assets/js/core/data-worker.js');
-                            let workerTiming = null; // Worker'dan gelen timing bilgisi
-                            const workerPromise = new Promise((resolve, reject) => {
-                                const timeout = setTimeout(() => {
-                                    worker.terminate();
-                                    reject(new Error(`Worker timeout (${year})`));
-                                }, 30000); // 30 saniye timeout
-
-                                worker.addEventListener('message', (e) => {
-                                    if (e.data.type === 'ready') {
-                                        // Worker hazır, decompress task'ı gönder
-                                        worker.postMessage({
-                                            type: 'decompress-and-parse',
-                                            data: arrayBufferCopy,
-                                            taskId: year
-                                        }, [arrayBufferCopy]); // Transferable - ownership transfer edilir
-                                    } else if (e.data.type === 'success') {
-                                        clearTimeout(timeout);
-                                        worker.terminate();
-                                        const yearDecompressDuration = performance.now() - yearDecompressStart;
-                                        decompressTimes[year] = yearDecompressDuration;
-                                        results[year] = e.data.result;
-                                        
-                                        // Worker timing bilgisi varsa göster
-                                        if (workerTiming) {
-                                            const { gzip, parse, total } = workerTiming;
-                                            safeConsole.log(`✅ ${year} decompression: ${yearDecompressDuration.toFixed(1)}ms (Worker: GZIP=${gzip.toFixed(1)}ms, Parse=${parse.toFixed(1)}ms, Total=${total.toFixed(1)}ms)`);
-                                        }
-                                        resolve({ year, success: true });
-                                    } else if (e.data.type === 'error') {
-                                        clearTimeout(timeout);
-                                        worker.terminate();
-                                        reject(new Error(e.data.error));
-                                    }
-                                });
-                                
-                                worker.addEventListener('error', (error) => {
-                                    clearTimeout(timeout);
-                                    worker.terminate();
-                                    reject(error);
-                                });
-                            });
-                            
-                            decompressPromises.push(
-                                workerPromise.catch(error => {
-                                    safeConsole.warn(`⚠️ Worker decompression hatası (${year}):`, error);
-                                    // Fallback: Main thread'de dene
-                                    try {
-                                        const decompressed = pako.ungzip(uint8ArrayCopy, { to: 'string' });
-                                        results[year] = JSON.parse(decompressed);
-                                        const fallbackDuration = performance.now() - yearDecompressStart;
-                                        decompressTimes[year] = fallbackDuration;
-                                        return { year, success: true };
-                                    } catch (fallbackError) {
-                                        safeConsole.error(`❌ Fallback decompression hatası (${year}):`, fallbackError);
-                                        return { year, success: false };
-                                    }
-                                })
-                            );
-                            
-                            workers.push(worker);
-                        } catch (error) {
-                            safeConsole.warn(`⚠️ Worker oluşturma hatası (${year}), fallback kullanılıyor:`, error);
-                            // Fallback: Main thread'de dene
-                            try {
-                                const uint8Array = rawData.data instanceof Uint8Array 
-                                    ? rawData.data 
-                                    : new Uint8Array(rawData.data);
-                                const decompressed = pako.ungzip(uint8Array, { to: 'string' });
-                                results[year] = JSON.parse(decompressed);
-                            } catch (fallbackError) {
-                                safeConsole.error(`❌ Fallback decompression hatası (${year}):`, fallbackError);
-                            }
-                        }
-                    } else {
-                        // Worker desteklenmiyor, main thread'de dene
-                        try {
-                            const uint8Array = rawData.data instanceof Uint8Array 
-                                ? rawData.data 
-                                : new Uint8Array(rawData.data);
-                            const decompressed = pako.ungzip(uint8Array, { to: 'string' });
-                            results[year] = JSON.parse(decompressed);
-                        } catch (error) {
-                            safeConsole.error(`❌ Decompression hatası (${year}):`, error);
-                        }
-                    }
+                    // Eski sıkıştırılmış cache - atla (yeni cache'ler sıkıştırılmamış)
+                    safeConsole.warn(`⚠️ ${year} eski sıkıştırılmış cache, atlanıyor (yeni cache sıkıştırılmamış olacak)`);
+                    continue;
                 } else {
-                    // Sıkıştırılmamış, direkt kullan
+                    // Sıkıştırma yok - direkt kullan
                     results[year] = rawData.data;
                 }
-            }
-            
-            // Tüm decompression'ları bekle (gerçek paralellik - her yıl için ayrı worker)
-            if (decompressPromises.length > 0) {
-                const decompressAllStart = performance.now();
-                await Promise.all(decompressPromises);
-                const decompressAllDuration = performance.now() - decompressAllStart;
-                
-                // Decompression süre özeti
-                const decompressSummary = Object.entries(decompressTimes)
-                    .map(([year, time]) => `${year}: ${time.toFixed(1)}ms`)
-                    .join(', ');
-                safeConsole.log(`⚡ Decompression: ${decompressAllDuration.toFixed(1)}ms (${decompressSummary})`);
-                
-                // Paralellik analizi: En uzun süre = gerçek paralel süre
-                const maxDecompressTime = Math.max(...Object.values(decompressTimes));
-                const totalDecompressTime = Object.values(decompressTimes).reduce((sum, time) => sum + time, 0);
-                const parallelEfficiency = ((totalDecompressTime / decompressAllDuration) * 100).toFixed(1);
-                safeConsole.log(`📊 Paralellik: En uzun ${maxDecompressTime.toFixed(1)}ms, Toplam ${totalDecompressTime.toFixed(1)}ms, Verimlilik %${parallelEfficiency}`);
             }
             
             const duration = performance.now() - startTime;
@@ -395,34 +291,20 @@ class IndexedDBCache {
         try {
             const cacheKey = `yearData-${year}`;
             // Cache version: günlük versiyon + compression level (level değiştiğinde cache yenilenecek)
-            const version = `${getDailyVersion()}-cl${COMPRESSION_LEVEL}`;
+            // NOT: COMPRESSION_LEVEL=0 artık, eski sıkıştırılmış cache'ler kullanılmayacak
+            const version = `${getDailyVersion()}-nocomp`;
             
             // Veriyi JSON string'e çevir
             const jsonString = JSON.stringify(data);
             const originalSize = jsonString.length;
             
-            // GZIP ile sıkıştır (pako library kullan)
+            // PERFORMANS OPTİMİZASYONU: Sıkıştırma kapalı (daha hızlı yükleme)
+            // Sıkıştırma kaldırıldı - direkt JSON string olarak sakla
             let compressedData = null;
             let compressedSize = originalSize;
             
-            if (typeof pako !== 'undefined') {
-                try {
-                    // OPTİMİZASYON: Düşük sıkıştırma (level 1) - daha hızlı decompression
-                    // Level 1: En hızlı sıkıştırma/açma, daha az sıkıştırma oranı
-                    // Level 6 (default): Yüksek sıkıştırma, yavaş açma
-                    const compressed = pako.gzip(jsonString, { level: COMPRESSION_LEVEL });
-                    // IndexedDB structured clone algorithm Uint8Array'i destekler
-                    compressedData = new Uint8Array(compressed);
-                    compressedSize = compressed.length;
-                    const compressionRatio = ((1 - compressedSize / originalSize) * 100).toFixed(1);
-                } catch (compressError) {
-                    safeConsole.warn(`⚠️ Sıkıştırma hatası (${year}), sıkıştırılmamış saklanacak:`, compressError);
-                    // Fallback: Sıkıştırılmamış sakla
-                    compressedData = null;
-                }
-            } else {
-                safeConsole.warn(`⚠️ Pako library yüklü değil, ${year} sıkıştırılmamış saklanacak`);
-            }
+            // Sıkıştırma kapalı - direkt JSON string kullan
+            // IndexedDB JSON string'i direkt saklayabilir (structured clone)
             
             return new Promise((resolve, reject) => {
                 const transaction = this.db.transaction([STORE_NAME], 'readwrite');
@@ -431,12 +313,12 @@ class IndexedDBCache {
                 const cacheEntry = {
                     key: cacheKey,
                     year: year,
-                    data: compressedData || data, // Sıkıştırılmış veya sıkıştırılmamış
-                    compressed: compressedData !== null, // Sıkıştırılmış mı?
+                    data: data, // Sıkıştırma yok - direkt data
+                    compressed: false, // Sıkıştırma kapalı
                     version: version,
                     timestamp: Date.now(),
-                    size: compressedSize, // Sıkıştırılmış boyut
-                    originalSize: originalSize // Orijinal boyut (decompression için)
+                    size: originalSize, // Orijinal boyut
+                    originalSize: originalSize
                 };
                 
                 const request = store.put(cacheEntry);

@@ -96,6 +96,9 @@
     <script type="module" src="assets/js/services/export-service.js"></script>
     <script type="module" src="assets/js/services/voice-service.js"></script>
     
+    <!-- Performance Test Module -->
+    <script type="module" src="assets/js/core/performance-test.js"></script>
+    
     <!-- Dashboard Başlatma -->
     <script>
         // safeConsole, getDailyVersion, getHourlyVersion, loadMetadata, loadYearData, vb. artık modüllerden geliyor
@@ -1767,7 +1770,7 @@
                     
                     <!-- Top 20 Products -->
                     <div id="salespersonTopProductsSection" style="margin-bottom: 40px;">
-                        <h3 style="margin-bottom: 20px;">🎯 En Çok Sattığı Ürünler (Top 20)</h3>
+                        <h3 style="margin-bottom: 20px; color: #e2e8f0;">🎯 En Çok Sattığı Ürünler (Top 20)</h3>
                         <div id="salespersonTopProductsTable" style="overflow-x: auto;"></div>
                     </div>
                     
@@ -2969,6 +2972,72 @@
             window.tableScrollListenersCleanupAdded = true;
         }
         
+        // ==================== PERFORMANCE TEST ====================
+        // Performans testi fonksiyonlarını global erişime aç
+        import('./assets/js/core/performance-test.js').then(module => {
+            window.runPerformanceTest = module.runPerformanceTest;
+            window.PerformanceTest = module.PerformanceTest;
+            
+            // Geliştirme modunda test butonu ekle
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                // Test butonu oluştur
+                const testButton = document.createElement('button');
+                testButton.id = 'performanceTestBtn';
+                testButton.innerHTML = '🚀 Performans Testi';
+                testButton.style.cssText = `
+                    position: fixed;
+                    top: 10px;
+                    right: 10px;
+                    z-index: 10000;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    border: none;
+                    padding: 10px 20px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-weight: bold;
+                    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+                    transition: all 0.3s;
+                `;
+                
+                testButton.onmouseover = () => {
+                    testButton.style.transform = 'scale(1.05)';
+                    testButton.style.boxShadow = '0 6px 20px rgba(0,0,0,0.4)';
+                };
+                
+                testButton.onmouseout = () => {
+                    testButton.style.transform = 'scale(1)';
+                    testButton.style.boxShadow = '0 4px 15px rgba(0,0,0,0.3)';
+                };
+                
+                testButton.onclick = () => {
+                    if (confirm('🚀 Kapsamlı performans testini çalıştırmak istediğinizden emin misiniz? Bu işlem birkaç dakika sürebilir.')) {
+                        console.log('🚀 Performans testi başlatılıyor...');
+                        window.runPerformanceTest().then(results => {
+                            console.log('✅ Performans testi tamamlandı:', results);
+                        }).catch(error => {
+                            console.error('❌ Performans testi hatası:', error);
+                        });
+                    }
+                };
+                
+                document.body.appendChild(testButton);
+                console.log('✅ Performans test butonu eklendi (localhost only)');
+            }
+        }).catch(error => {
+            console.error('❌ Performance test modülü yüklenemedi:', error);
+        });
+        
+        // Konsoldan hızlı erişim için
+        window.startPerformanceTest = function() {
+            if (window.runPerformanceTest) {
+                return window.runPerformanceTest();
+            } else {
+                console.error('❌ Performance test modülü yüklenmedi. Lütfen sayfayı yenileyin.');
+                return Promise.reject(new Error('Performance test modülü yüklenmedi'));
+            }
+        };
+        
         // Loading System
         let loadingProgress = 0;
         let loadingSteps = [
@@ -3092,10 +3161,23 @@
             }
             
             // Gerçek veri yükleme işlemini başlat
+            // Modül yüklenene kadar bekle
             if (typeof window.loadData === 'function') {
                 window.loadData();
             } else {
-                console.error('❌ loadData fonksiyonu bulunamadı');
+                // Modül henüz yüklenmedi, biraz bekle ve tekrar dene
+                let retryCount = 0;
+                const maxRetries = 20; // 10 saniye (20 * 500ms)
+                const checkLoadData = setInterval(() => {
+                    retryCount++;
+                    if (typeof window.loadData === 'function') {
+                        clearInterval(checkLoadData);
+                        window.loadData();
+                    } else if (retryCount >= maxRetries) {
+                        clearInterval(checkLoadData);
+                        console.error('❌ loadData fonksiyonu 10 saniye içinde yüklenemedi');
+                    }
+                }, 500);
             }
         }
 
