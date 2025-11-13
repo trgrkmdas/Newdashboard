@@ -161,6 +161,8 @@ export async function switchTabOld(tabName) {
         }
     } else if (tabName === 'store') {
         safeConsole.log('🏪 Mağaza analizi sekmesi açılıyor...');
+        const storeTabStartTime = performance.now(); // Performans ölçümü
+        
         // Multi-select filtreleri initialize et
         setTimeout(() => {
             if (typeof window.populateStoreYearFilter === 'function') {
@@ -173,33 +175,41 @@ export async function switchTabOld(tabName) {
                 window.populateStoreDayFilter();
             }
         }, 100);
-        // Envanter verilerini yükle
-        if (!window.inventoryData) {
-            safeConsole.log('🔄 Envanter verileri yükleniyor...');
-            if (typeof window.loadInventoryData === 'function') {
-                await window.loadInventoryData();
+        
+        // Paralel veri yükleme: Envanter, Stok Konumları ve Ödeme verileri
+        safeConsole.log('🔄 Store tab: Paralel veri yükleme başlatılıyor (inventory, stockLocations, payment)...');
+        if (typeof window.loadDataParallel === 'function') {
+            await window.loadDataParallel(['inventory', 'stockLocations', 'payment']);
+            safeConsole.log('✅ Store tab: Paralel veri yükleme tamamlandı');
+        } else {
+            // Fallback: Eski yöntem (sıralı yükleme)
+            safeConsole.warn('⚠️ loadDataParallel bulunamadı, sıralı yükleme kullanılıyor');
+            if (!window.inventoryData) {
+                if (typeof window.loadInventoryData === 'function') {
+                    await window.loadInventoryData();
+                }
+            }
+            if (typeof window.stockLocations === 'undefined' || Object.keys(window.stockLocations || {}).length === 0) {
+                if (typeof window.loadStockLocations === 'function') {
+                    await window.loadStockLocations();
+                }
+            }
+            if (!window.paymentData || !window.paymentData.transactions || window.paymentData.transactions.length === 0) {
+                if (typeof window.loadPaymentData === 'function') {
+                    await window.loadPaymentData();
+                }
             }
         }
-        // Stok konumlarını yükle
-        if (typeof window.stockLocations === 'undefined' || Object.keys(window.stockLocations || {}).length === 0) {
-            safeConsole.log('🔄 Stok konumları yükleniyor...');
-            if (typeof window.loadStockLocations === 'function') {
-                await window.loadStockLocations();
-            }
+        
+        // Veri yüklendikten sonra mağaza analizini başlat (setTimeout kaldırıldı - paralel yükleme zaten await ediyor)
+        if (window.inventoryData && window.stockLocations && Object.keys(window.stockLocations).length > 0) {
+            safeConsole.log('✅ Envanter verileri hazır, mağaza analizi başlatılıyor...');
         }
-        // Ödeme verilerini yükle (mağaza ödeme bilgileri için gerekli)
-        if (!window.paymentData || !window.paymentData.transactions || window.paymentData.transactions.length === 0) {
-            safeConsole.log('🔄 Ödeme verileri yükleniyor (mağaza ödeme bilgileri için)...');
-            if (typeof window.loadPaymentData === 'function') {
-                await window.loadPaymentData();
-            }
-        }
-        // Envanter verisi yüklendikten sonra mağaza analizini başlat
-        setTimeout(() => {
-            if (window.inventoryData && window.stockLocations && Object.keys(window.stockLocations).length > 0) {
-                safeConsole.log('✅ Envanter verileri hazır, mağaza analizi başlatılıyor...');
-            }
-        }, 1000);
+        
+        // Performans ölçümü
+        const storeTabEndTime = performance.now();
+        const storeTabDuration = ((storeTabEndTime - storeTabStartTime) / 1000).toFixed(2);
+        safeConsole.log(`⏱️ Store tab açılış süresi: ${storeTabDuration}s`);
     } else if (tabName === 'city') {
         safeConsole.log('🌍 Şehir analizi sekmesi açılıyor...');
         safeConsole.log('📊 allData durumu:', window.allData ? `${window.allData.length} kayıt` : 'Henüz yüklenmedi');
@@ -238,30 +248,43 @@ export async function switchTabOld(tabName) {
         }
     } else if (tabName === 'inventory') {
         safeConsole.log('📊 Envanter + Satış Analizi sekmesi açılıyor...');
-        // Envanter verilerini yükle (eğer yüklenmemişse veya boşsa)
-        if (!window.inventoryData || !window.inventoryData.inventory || window.inventoryData.inventory.length === 0) {
-            safeConsole.log('🔄 Envanter verileri yükleniyor...');
-            if (typeof window.loadInventoryData === 'function') {
-                await window.loadInventoryData();
+        const inventoryTabStartTime = performance.now(); // Performans ölçümü
+        
+        // Paralel veri yükleme: Envanter ve Stok Konumları
+        safeConsole.log('🔄 Inventory tab: Paralel veri yükleme başlatılıyor (inventory, stockLocations)...');
+        if (typeof window.loadDataParallel === 'function') {
+            await window.loadDataParallel(['inventory', 'stockLocations']);
+            safeConsole.log('✅ Inventory tab: Paralel veri yükleme tamamlandı');
+        } else {
+            // Fallback: Eski yöntem (sıralı yükleme)
+            safeConsole.warn('⚠️ loadDataParallel bulunamadı, sıralı yükleme kullanılıyor');
+            if (!window.inventoryData || !window.inventoryData.inventory || window.inventoryData.inventory.length === 0) {
+                if (typeof window.loadInventoryData === 'function') {
+                    await window.loadInventoryData();
+                }
+            }
+            if (typeof window.stockLocations === 'undefined' || Object.keys(window.stockLocations || {}).length === 0) {
+                if (typeof window.loadStockLocations === 'function') {
+                    await window.loadStockLocations();
+                }
             }
         }
-        // Stok konumlarını yükle
-        if (typeof window.stockLocations === 'undefined' || Object.keys(window.stockLocations || {}).length === 0) {
-            safeConsole.log('🔄 Stok konumları yükleniyor...');
-            if (typeof window.loadStockLocations === 'function') {
-                await window.loadStockLocations();
-            }
-        }
+        
         // Filtreleri doldur ve analizi çalıştır
         if (typeof window.populateInventoryFilters === 'function') {
             window.populateInventoryFilters();
         }
-        // Biraz bekle (filtreler doldurulsun), sonra analizi çalıştır
+        // Veri yüklendikten sonra analizi çalıştır (setTimeout azaltıldı - paralel yükleme zaten await ediyor)
         setTimeout(() => {
             if (typeof window.performInventoryAnalysis === 'function') {
                 window.performInventoryAnalysis();
             }
-        }, 300);
+            
+            // Performans ölçümü
+            const inventoryTabEndTime = performance.now();
+            const inventoryTabDuration = ((inventoryTabEndTime - inventoryTabStartTime) / 1000).toFixed(2);
+            safeConsole.log(`⏱️ Inventory tab açılış süresi: ${inventoryTabDuration}s`);
+        }, 100); // 300ms → 100ms (paralel yükleme sayesinde daha hızlı)
     } else if (tabName === 'payments') {
         safeConsole.log('💳 Ödeme Analizi sekmesi açılıyor...');
         
@@ -278,12 +301,12 @@ export async function switchTabOld(tabName) {
                 await window.loadPaymentData();
             }
         }
-        // Analizi çalıştır
+        // Analizi çalıştır (veri yüklendikten sonra, kısa gecikme DOM hazır olması için)
         setTimeout(() => {
             if (typeof window.analyzePayments === 'function') {
                 window.analyzePayments();
             }
-        }, 300);
+        }, 100); // 300ms → 100ms (veri yükleme zaten await ediyor)
     } else if (tabName === 'dailySales') {
         safeConsole.log('📅 Günlük Satış sekmesi açılıyor...');
         

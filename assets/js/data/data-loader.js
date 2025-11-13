@@ -279,9 +279,13 @@ export async function loadStockLocations() {
         const data = await response.json();
         const stockLocations = data.stock_locations || {};
         safeConsole.log('✅ Stok konumları yüklendi:', Object.keys(stockLocations).length, 'lokasyon');
+        // Window objesine otomatik atama
+        window.stockLocations = stockLocations;
         return stockLocations;
     } catch (error) {
         console.error('❌ Stock locations hatası:', error);
+        // Hata durumunda boş obje ata
+        window.stockLocations = {};
         return {};
     }
 }
@@ -318,10 +322,14 @@ export async function loadInventoryData() {
             throw new Error('Beklenmeyen veri formatı: inventory array bulunamadı');
         }
         
+        // Window objesine otomatik atama
+        window.inventoryData = inventoryData;
         return inventoryData;
         
     } catch (error) {
         console.error('❌ Envanter verileri yüklenemedi:', error);
+        // Hata durumunda window objesini temizle (undefined bırak)
+        window.inventoryData = undefined;
         throw error;
     }
 }
@@ -374,11 +382,241 @@ export async function loadPaymentData() {
         const paymentData = JSON.parse(decompressed);
         safeConsole.log(`✅ Ödeme verileri yüklendi: ${paymentData.payments?.length || 0} kayıt`);
         
+        // Window objesine otomatik atama
+        window.paymentData = paymentData;
         return paymentData;
         
     } catch (error) {
         console.error('❌ Ödeme verileri yüklenemedi:', error);
+        // Hata durumunda window objesini temizle (undefined bırak)
+        window.paymentData = undefined;
         throw error;
+    }
+}
+
+/**
+ * Birden fazla veri dosyasını paralel olarak yükle
+ * @param {Array<string>} dataTypes - Yüklenecek veri tipleri: ['inventory', 'payment', 'stockLocations']
+ * @returns {Promise<Object>} Yüklenen verilerin sonuçları
+ * 
+ * Örnek kullanım:
+ * await loadDataParallel(['inventory', 'payment', 'stockLocations']);
+ */
+export async function loadDataParallel(dataTypes) {
+    if (!Array.isArray(dataTypes) || dataTypes.length === 0) {
+        safeConsole.warn('⚠️ loadDataParallel: Geçersiz dataTypes parametresi');
+        return {};
+    }
+    
+    safeConsole.log(`🔄 Paralel veri yükleme başlatılıyor: ${dataTypes.join(', ')}`);
+    const startTime = performance.now();
+    
+    // Her veri tipi için yükleme fonksiyonunu belirle
+    const loaders = {
+        'inventory': async () => {
+            // Mevcut yükleme kontrolü
+            if (window.inventoryData && window.inventoryData.inventory && window.inventoryData.inventory.length > 0) {
+                safeConsole.log('✅ Envanter verileri zaten yüklü, atlanıyor');
+                return { type: 'inventory', data: window.inventoryData, cached: true };
+            }
+            const data = await loadInventoryData();
+            return { type: 'inventory', data: data, cached: false };
+        },
+        'payment': async () => {
+            // Mevcut yükleme kontrolü
+            if (window.paymentData && window.paymentData.transactions && window.paymentData.transactions.length > 0) {
+                safeConsole.log('✅ Ödeme verileri zaten yüklü, atlanıyor');
+                return { type: 'payment', data: window.paymentData, cached: true };
+            }
+            const data = await loadPaymentData();
+            return { type: 'payment', data: data, cached: false };
+        },
+        'stockLocations': async () => {
+            // Mevcut yükleme kontrolü
+            if (window.stockLocations && typeof window.stockLocations === 'object' && Object.keys(window.stockLocations).length > 0) {
+                safeConsole.log('✅ Stok konumları zaten yüklü, atlanıyor');
+                return { type: 'stockLocations', data: window.stockLocations, cached: true };
+            }
+            const data = await loadStockLocations();
+            return { type: 'stockLocations', data: data, cached: false };
+        }
+    };
+    
+    // Geçerli veri tiplerini filtrele ve yükleme promise'lerini oluştur
+    const validTypes = dataTypes.filter(type => loaders[type]);
+    if (validTypes.length === 0) {
+        safeConsole.warn('⚠️ loadDataParallel: Geçerli veri tipi bulunamadı');
+        return {};
+    }
+    
+    // Her yükleme için ayrı try-catch ile hata yönetimi (partial success desteği)
+    const loadPromises = validTypes.map(async (type) => {
+        try {
+            return await loaders[type]();
+        } catch (error) {
+            safeConsole.error(`❌ ${type} yükleme hatası:`, error);
+            return { type: type, data: null, error: error.message, cached: false };
+        }
+    });
+    
+    // Paralel yükleme
+    try {
+        const results = await Promise.all(loadPromises);
+        const endTime = performance.now();
+        const duration = ((endTime - startTime) / 1000).toFixed(2);
+        
+        // Sonuçları organize et
+        const resultMap = {};
+        let successCount = 0;
+        let errorCount = 0;
+        let cachedCount = 0;
+        
+        results.forEach(result => {
+            resultMap[result.type] = result;
+            if (result.error) {
+                errorCount++;
+            } else if (result.cached) {
+                cachedCount++;
+                successCount++;
+            } else {
+                successCount++;
+            }
+        });
+        
+        safeConsole.log(`✅ Paralel veri yükleme tamamlandı: ${successCount} başarılı, ${errorCount} hata, ${cachedCount} cache hit (${duration}s)`);
+        
+        // Hata durumunda kullanıcıya bilgi ver (partial success)
+        if (errorCount > 0) {
+            const errorTypes = results.filter(r => r.error).map(r => r.type).join(', ');
+            safeConsole.warn(`⚠️ Bazı veriler yüklenemedi: ${errorTypes}. Uygulama sınırlı işlevsellikle çalışabilir.`);
+            
+            // Kullanıcıya görsel geri bildirim (opsiyonel - dataStatus badge'i güncellenebilir)
+            const dataStatusEl = document.getElementById('dataStatus');
+            if (dataStatusEl && errorCount < validTypes.length) {
+                // Partial success - bazı veriler yüklendi
+                const existingBadge = dataStatusEl.querySelector('.status-badge');
+                if (existingBadge && !existingBadge.textContent.includes('⚠️')) {
+                    // Mevcut badge'i koru, sadece uyarı ekle
+                    safeConsole.log('ℹ️ Kısmi veri yükleme: Bazı özellikler kullanılamayabilir');
+                }
+            }
+        }
+        
+        return resultMap;
+    } catch (error) {
+        safeConsole.error('❌ Paralel veri yükleme genel hatası:', error);
+        // Genel hata durumunda kullanıcıya bilgi ver
+        const dataStatusEl = document.getElementById('dataStatus');
+        if (dataStatusEl) {
+            const existingBadge = dataStatusEl.querySelector('.status-badge');
+            if (!existingBadge || !existingBadge.textContent.includes('❌')) {
+                safeConsole.error('❌ Veri yükleme hatası: Lütfen sayfayı yenileyin veya daha sonra tekrar deneyin');
+            }
+        }
+        return {};
+    }
+}
+
+/**
+ * İkincil verileri önceden yükle (prefetch stratejisi)
+ * Sayfa yüklendikten sonra idle time'da kritik verileri önceden yükler
+ * 
+ * Öncelik sırası:
+ * 1. paymentData (customers, payments tab'ları için)
+ * 2. inventoryData (store, inventory tab'ları için)
+ * 3. stockLocations (store, inventory tab'ları için)
+ */
+export function prefetchSecondaryData() {
+    // Sadece ana veriler yüklendikten sonra çalış
+    // window.dataLoaded flag'i veya allData kontrolü yap
+    const isDataLoaded = window.dataLoaded || (window.allData && window.allData.length > 0);
+    
+    if (!isDataLoaded) {
+        safeConsole.log('⏳ Prefetch: Ana veriler henüz yüklenmedi, bekleniyor...');
+        // Ana veriler yüklenene kadar bekle (maksimum 30 saniye)
+        let checkCount = 0;
+        const checkInterval = setInterval(() => {
+            checkCount++;
+            const dataLoaded = window.dataLoaded || (window.allData && window.allData.length > 0);
+            if (dataLoaded || checkCount >= 300) {
+                clearInterval(checkInterval);
+                if (checkCount >= 300) {
+                    safeConsole.warn('⚠️ Prefetch: Ana veriler 30 saniye içinde yüklenemedi, prefetch iptal edildi');
+                    return;
+                }
+                // Ana veriler yüklendi, prefetch'i başlat
+                safeConsole.log('✅ Prefetch: Ana veriler yüklendi, prefetch başlatılıyor...');
+                _executePrefetch();
+            }
+        }, 100);
+        return;
+    }
+    
+    // Ana veriler zaten yüklü, prefetch'i başlat
+    safeConsole.log('✅ Prefetch: Ana veriler hazır, prefetch başlatılıyor...');
+    _executePrefetch();
+}
+
+/**
+ * Prefetch işlemini gerçekleştir (internal helper)
+ */
+function _executePrefetch() {
+    // requestIdleCallback kullan (daha iyi UX)
+    if (typeof requestIdleCallback !== 'undefined') {
+        requestIdleCallback(async () => {
+            await _loadPrefetchData();
+        }, { timeout: 5000 }); // Maksimum 5 saniye bekle
+    } else {
+        // Fallback: setTimeout (requestIdleCallback desteklenmiyorsa)
+        setTimeout(async () => {
+            await _loadPrefetchData();
+        }, 2000); // 2 saniye sonra başlat
+    }
+}
+
+/**
+ * Prefetch verilerini yükle (internal helper)
+ */
+async function _loadPrefetchData() {
+    safeConsole.log('🔄 Prefetch: İkincil veriler önceden yükleniyor...');
+    
+    // Yüklenmesi gereken verileri belirle (öncelik sırasına göre)
+    const dataToLoad = [];
+    
+    // 1. paymentData (en çok kullanılan)
+    if (!window.paymentData || !window.paymentData.transactions || window.paymentData.transactions.length === 0) {
+        dataToLoad.push('payment');
+    }
+    
+    // 2. inventoryData
+    if (!window.inventoryData || !window.inventoryData.inventory || window.inventoryData.inventory.length === 0) {
+        dataToLoad.push('inventory');
+    }
+    
+    // 3. stockLocations (inventory ile birlikte kullanılıyor)
+    if (typeof window.stockLocations === 'undefined' || Object.keys(window.stockLocations || {}).length === 0) {
+        dataToLoad.push('stockLocations');
+    }
+    
+    if (dataToLoad.length === 0) {
+        safeConsole.log('✅ Prefetch: Tüm ikincil veriler zaten yüklü');
+        return;
+    }
+    
+    safeConsole.log(`📦 Prefetch: ${dataToLoad.length} veri tipi yüklenecek: ${dataToLoad.join(', ')}`);
+    
+    // Paralel yükleme
+    if (typeof window.loadDataParallel === 'function') {
+        try {
+            const startTime = performance.now();
+            await window.loadDataParallel(dataToLoad);
+            const duration = ((performance.now() - startTime) / 1000).toFixed(2);
+            safeConsole.log(`✅ Prefetch: ${dataToLoad.length} veri tipi önceden yüklendi (${duration}s)`);
+        } catch (error) {
+            safeConsole.warn('⚠️ Prefetch hatası (kritik değil):', error);
+        }
+    } else {
+        safeConsole.warn('⚠️ Prefetch: loadDataParallel bulunamadı');
     }
 }
 
@@ -640,6 +878,11 @@ export async function loadData() {
             
             // Veri yükleme başarıyla tamamlandı, flag'i set et
             window.dataLoaded = true;
+            
+            // Ana veriler yüklendi, prefetch'i başlat
+            if (typeof window.prefetchSecondaryData === 'function') {
+                window.prefetchSecondaryData();
+            }
             
         } catch (error) {
             console.error('❌ Veri yükleme hatası:', error);
@@ -1469,6 +1712,8 @@ window.loadYearData = loadYearData;
 window.loadStockLocations = loadStockLocations;
 window.loadInventoryData = loadInventoryData;
 window.loadPaymentData = loadPaymentData;
+window.loadDataParallel = loadDataParallel;
+window.prefetchSecondaryData = prefetchSecondaryData;
 window.loadCentralTargets = loadCentralTargets;
 window.loadCentralTargetsWrapper = loadCentralTargetsWrapper;
 window.loadData = loadData;

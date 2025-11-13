@@ -1563,6 +1563,7 @@ jobs:
                                         month = 'Bilinmeyen'
                                     
                                     # Saat bilgisi - account.move'dan create_date (FATURA KESİLME ZAMANI)
+                                    # DÜZELTME: UTC'den Türkiye saatine dönüşüm yapılıyor
                                     create_hour = 0
                                     create_day_of_week = 0
                                     
@@ -1571,10 +1572,24 @@ jobs:
                                         try:
                                             # Format: '2025-10-15 14:35:22'
                                             from datetime import datetime
-                                            dt = datetime.strptime(create_date_str, '%Y-%m-%d %H:%M:%S')
-                                            create_hour = dt.hour
-                                            create_day_of_week = dt.weekday()  # 0=Pazartesi, 6=Pazar
-                                        except:
+                                            from zoneinfo import ZoneInfo
+                                            
+                                            # UTC timezone (Odoo'dan gelen veri UTC formatında)
+                                            utc_tz = ZoneInfo('UTC')
+                                            # Türkiye timezone
+                                            turkey_tz = ZoneInfo('Europe/Istanbul')
+                                            
+                                            # UTC olarak parse et
+                                            dt_naive = datetime.strptime(create_date_str, '%Y-%m-%d %H:%M:%S')
+                                            dt_utc = dt_naive.replace(tzinfo=utc_tz)
+                                            
+                                            # Türkiye saatine dönüştür
+                                            dt_turkey = dt_utc.astimezone(turkey_tz)
+                                            create_hour = dt_turkey.hour
+                                            create_day_of_week = dt_turkey.weekday()  # 0=Pazartesi, 6=Pazar
+                                        except Exception as e:
+                                            # Hata durumunda varsayılan değerleri kullan
+                                            print(f"⚠️ Timezone dönüşüm hatası (move_id: {move_id}): {e}")
                                             pass
                                     
                                     # Kategori (ürün map'inden)

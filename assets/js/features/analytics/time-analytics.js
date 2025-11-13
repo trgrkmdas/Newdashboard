@@ -228,8 +228,8 @@ export function updateTimeSummary() {
             }
         }
         
-        // Mesai saati (09:00-18:00) - hour null kontrolü
-        if (hour !== null && hour >= 9 && hour < 18) {
+        // Mesai saati (10:00-22:00) - hour null kontrolü
+        if (hour !== null && hour >= 10 && hour < 22) {
             workHoursSales += sales;
         }
         
@@ -382,7 +382,7 @@ export function renderHourlyChart() {
                 backgroundColor: hourData.map((val, idx) => {
                     const max = Math.max(...hourData);
                     if (val === max) return 'rgba(245, 87, 108, 0.8)'; // En yoğun
-                    if (idx >= 9 && idx < 18) return 'rgba(56, 239, 125, 0.6)'; // Mesai saati
+                    if (idx >= 10 && idx < 22) return 'rgba(56, 239, 125, 0.6)'; // Mesai saati
                     return 'rgba(102, 126, 234, 0.6)'; // Normal
                 }),
                 borderColor: 'rgba(102, 126, 234, 1)',
@@ -660,10 +660,20 @@ export function renderStoreTimeChart() {
         filteredData.filter(item => item.store === selectedStore) : 
         filteredData;
     
+    // DÜZELTME: shouldHideItem ile filtrelenmiş veriden hesapla (Dashboard ile tutarlı)
+    const shouldHideItem = window.shouldHideItem || (() => false);
+    
     const hourData = Array(24).fill(0);
+    const hourCount = Array(24).fill(0);
+    
     data.forEach(item => {
-        // İade ve indirim ürünlerini atla
-        if (item.is_refund || item.is_discount || item.is_service) {
+        // shouldHideItem kontrolü (iadeler ve indirim ürünleri filtreleniyor)
+        if (shouldHideItem(item)) {
+            return;
+        }
+        
+        // Hizmet ürünlerini atla (shouldHideItem'da yok, burada kontrol ediyoruz)
+        if (item.is_service) {
             return;
         }
         
@@ -678,6 +688,7 @@ export function renderStoreTimeChart() {
         if (hour === null || hour < 0 || hour >= 24) return;
         
         hourData[hour] += sales;
+        hourCount[hour] += 1;
     });
     
     if (storeTimeChartInstance) {
@@ -700,7 +711,14 @@ export function renderStoreTimeChart() {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: {display: true}
+                legend: {display: true},
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `Satış: $${context.parsed.y.toLocaleString('tr-TR')} (${hourCount[context.dataIndex]} adet)`;
+                        }
+                    }
+                }
             },
             scales: {
                 y: {
@@ -729,10 +747,20 @@ export function renderCategoryTimeChart() {
         filteredData.filter(item => item.category_2 === selectedCategory) : 
         filteredData;
     
+    // DÜZELTME: shouldHideItem ile filtrelenmiş veriden hesapla (Dashboard ile tutarlı)
+    const shouldHideItem = window.shouldHideItem || (() => false);
+    
     const hourData = Array(24).fill(0);
+    const hourCount = Array(24).fill(0);
+    
     data.forEach(item => {
-        // İade ve indirim ürünlerini atla
-        if (item.is_refund || item.is_discount || item.is_service) {
+        // shouldHideItem kontrolü (iadeler ve indirim ürünleri filtreleniyor)
+        if (shouldHideItem(item)) {
+            return;
+        }
+        
+        // Hizmet ürünlerini atla (shouldHideItem'da yok, burada kontrol ediyoruz)
+        if (item.is_service) {
             return;
         }
         
@@ -747,6 +775,7 @@ export function renderCategoryTimeChart() {
         if (hour === null || hour < 0 || hour >= 24) return;
         
         hourData[hour] += sales;
+        hourCount[hour] += 1;
     });
     
     if (categoryTimeChartInstance) {
@@ -769,7 +798,14 @@ export function renderCategoryTimeChart() {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: {display: true}
+                legend: {display: true},
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `Satış: $${context.parsed.y.toLocaleString('tr-TR')} (${hourCount[context.dataIndex]} adet)`;
+                        }
+                    }
+                }
             },
             scales: {
                 y: {
@@ -798,10 +834,20 @@ export function renderSalesPersonTimeChart() {
         filteredData.filter(item => item.sales_person === selectedPerson) : 
         filteredData;
     
+    // DÜZELTME: shouldHideItem ile filtrelenmiş veriden hesapla (Dashboard ile tutarlı)
+    const shouldHideItem = window.shouldHideItem || (() => false);
+    
     const hourData = Array(24).fill(0);
+    const hourCount = Array(24).fill(0);
+    
     data.forEach(item => {
-        // İade ve indirim ürünlerini atla
-        if (item.is_refund || item.is_discount || item.is_service) {
+        // shouldHideItem kontrolü (iadeler ve indirim ürünleri filtreleniyor)
+        if (shouldHideItem(item)) {
+            return;
+        }
+        
+        // Hizmet ürünlerini atla (shouldHideItem'da yok, burada kontrol ediyoruz)
+        if (item.is_service) {
             return;
         }
         
@@ -816,6 +862,7 @@ export function renderSalesPersonTimeChart() {
         if (hour === null || hour < 0 || hour >= 24) return;
         
         hourData[hour] += sales;
+        hourCount[hour] += 1;
     });
     
     if (salesPersonTimeChartInstance) {
@@ -838,7 +885,14 @@ export function renderSalesPersonTimeChart() {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: {display: true}
+                legend: {display: true},
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `Satış: $${context.parsed.y.toLocaleString('tr-TR')} (${hourCount[context.dataIndex]} adet)`;
+                        }
+                    }
+                }
             },
             scales: {
                 y: {
@@ -1019,7 +1073,7 @@ export function performTimeAIAnalysis() {
     let workHoursSales = 0;
     let offHoursSales = 0;
     for (const [hour, data] of Object.entries(hourData)) {
-        if (parseInt(hour) >= 9 && parseInt(hour) < 18) {
+        if (parseInt(hour) >= 10 && parseInt(hour) < 22) {
             workHoursSales += data.sales;
         } else {
             offHoursSales += data.sales;
@@ -1033,7 +1087,7 @@ export function performTimeAIAnalysis() {
         : '0.0';
     insights.neutral.push({
         title: 'Mesai Saati Dağılımı',
-        description: `Satışların <span class="metric-highlight">%${workHoursPercent}</span>'i mesai saatlerinde (09:00-18:00) gerçekleşiyor.`
+        description: `Satışların <span class="metric-highlight">%${workHoursPercent}</span>'i mesai saatlerinde (10:00-22:00) gerçekleşiyor.`
     });
     
     // Öneriler

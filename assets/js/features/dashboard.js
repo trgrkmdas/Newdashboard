@@ -8,6 +8,8 @@ import { applyDiscountLogic, isDiscountProduct } from '../data/data-processor.js
 import { getDataViewManager } from '../core/data-view-manager.js';
 import { getWorkerManager } from '../core/worker-manager.js';
 import { getProgressiveLoader } from '../core/progressive-loader.js';
+import { getCache } from '../core/indexeddb-cache.js';
+import { getLoadedDataCache, setLoadedDataCache, getLoadedYears, setLoadedYears } from '../data/metadata-manager.js';
 
 /**
  * Tüm yılların verilerini yükle
@@ -67,11 +69,62 @@ export async function loadAllYearsData(metadata) {
         
         safeConsole.log(`📦 Seçili yıllar yükleniyor: ${yearsToLoad.join(', ')}`);
         
-        // Seçili yılları paralel olarak yükle
-        // Metadata güncellenmişse, verileri yeniden yükle
+        // OPTİMİZASYON: Önce cache'den batch olarak oku (tek transaction)
         const forceReload = metadata?.needsReload || false;
-        const yearPromises = yearsToLoad.map(year => loadYearData(year, forceReload));
-        const yearResults = await Promise.all(yearPromises);
+        let cachedResults = {};
+        let yearsToLoadFromNetwork = [];
+        
+        if (!forceReload) {
+            const cache = getCache();
+            // Cache henüz init edilmemişse init et
+            if (cache && !cache.db && cache.isSupported) {
+                await cache.init();
+            }
+            if (cache && cache.isSupported && typeof cache.getBatch === 'function') {
+                cachedResults = await cache.getBatch(yearsToLoad);
+                
+                // Cache'den yüklenen yılları belirle
+                const cachedYears = Object.keys(cachedResults);
+                yearsToLoadFromNetwork = yearsToLoad.filter(year => !cachedYears.includes(year));
+                
+                if (cachedYears.length > 0) {
+                    // Log mesajı getBatch içinde gösteriliyor
+                    
+                    // Cache'den yüklenen verileri memory cache'e ekle
+                    const currentCache = getLoadedDataCache();
+                    const currentYears = getLoadedYears();
+                    cachedYears.forEach(year => {
+                        currentCache[year] = cachedResults[year];
+                        currentYears.add(year);
+                    });
+                    setLoadedDataCache(currentCache);
+                    setLoadedYears(currentYears);
+                }
+            } else {
+                // Fallback: Eski yöntem (tek tek cache okuma)
+                yearsToLoadFromNetwork = yearsToLoad;
+            }
+        } else {
+            yearsToLoadFromNetwork = yearsToLoad;
+        }
+        
+        // Sadece cache'de olmayan yılları network'ten yükle
+        let networkResults = [];
+        if (yearsToLoadFromNetwork.length > 0) {
+            safeConsole.log(`🌐 Network'ten yüklenecek yıllar: ${yearsToLoadFromNetwork.join(', ')}`);
+            const networkPromises = yearsToLoadFromNetwork.map(year => loadYearData(year, forceReload));
+            networkResults = await Promise.all(networkPromises);
+        }
+        
+        // Cache ve network sonuçlarını birleştir
+        const yearResults = yearsToLoad.map(year => {
+            if (cachedResults[year]) {
+                return cachedResults[year];
+            } else {
+                const networkIndex = yearsToLoadFromNetwork.indexOf(year);
+                return networkIndex >= 0 ? networkResults[networkIndex] : null;
+            }
+        });
         
         // Tüm verileri birleştir
         let allRawData = [];
@@ -525,6 +578,30 @@ export async function switchTab(tabName) {
             }
         }, 100);
         
+        // Paralel veri yükleme: Envanter, Stok Konumları ve Ödeme verileri
+        if (typeof window.loadDataParallel === 'function') {
+            await window.loadDataParallel(['inventory', 'stockLocations', 'payment']);
+        } else {
+            // Fallback: Eski yöntem (sıralı yükleme)
+            safeConsole.warn('⚠️ loadDataParallel bulunamadı, sıralı yükleme kullanılıyor');
+            if (!window.inventoryData) {
+                if (typeof window.loadInventoryData === 'function') {
+                    await window.loadInventoryData();
+                }
+            }
+            if (typeof window.stockLocations === 'undefined' || Object.keys(window.stockLocations || {}).length === 0) {
+                if (typeof window.loadStockLocations === 'function') {
+                    await window.loadStockLocations();
+                }
+            }
+            if (!window.paymentData || !window.paymentData.transactions || window.paymentData.transactions.length === 0) {
+                if (typeof window.loadPaymentData === 'function') {
+                    await window.loadPaymentData();
+                }
+            }
+        }
+        
+        // Veri yüklendikten sonra mağaza analizini başlat
         if (typeof window.analyzeStores === 'function') {
             window.analyzeStores();
         }

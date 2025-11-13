@@ -154,6 +154,8 @@ self.addEventListener('message', async function(e) {
             }
             
             case 'decompress-and-parse': {
+                const totalStart = performance.now();
+                
                 // Progress callback gönder
                 self.postMessage({
                     type: 'progress',
@@ -162,26 +164,32 @@ self.addEventListener('message', async function(e) {
                     message: 'GZIP açılıyor...'
                 });
                 
+                // GZIP açma süresini ölç
+                const gzipStart = performance.now();
                 const uint8Array = new Uint8Array(data);
                 const decompressed = decompressGzip(uint8Array);
+                const gzipDuration = performance.now() - gzipStart;
                 
                 // Progress callback gönder
                 self.postMessage({
                     type: 'progress',
                     taskId,
                     progress: 50,
-                    message: 'GZIP açıldı, JSON parse ediliyor...'
+                    message: `GZIP açıldı (${gzipDuration.toFixed(1)}ms), JSON parse ediliyor...`
                 });
                 
-                // JSON parse et
+                // JSON parse süresini ölç
+                const parseStart = performance.now();
                 const parsed = parseJSON(decompressed);
+                const parseDuration = performance.now() - parseStart;
+                const totalDuration = performance.now() - totalStart;
                 
-                // Progress callback gönder
+                // Progress mesajı
                 self.postMessage({
                     type: 'progress',
                     taskId,
                     progress: 90,
-                    message: 'JSON parse edildi'
+                    message: `JSON parse edildi (${parseDuration.toFixed(1)}ms)`
                 });
                 
                 // Sonucu gönder

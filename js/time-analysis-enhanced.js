@@ -93,7 +93,7 @@ const TimeAnalysisEnhanced = {
      * Mesai saati analizi
      */
     analyzeWorkHours(data) {
-        const workHours = { sales: 0, qty: 0, count: 0 }; // 09:00-18:00
+        const workHours = { sales: 0, qty: 0, count: 0 }; // 10:00-22:00
         const afterHours = { sales: 0, qty: 0, count: 0 }; // Diğer saatler
         
         data.forEach(item => {
@@ -109,7 +109,7 @@ const TimeAnalysisEnhanced = {
             const sales = parseFloat(item.usd_amount) || 0;
             const qty = parseInt(item.qty) || 0;
             
-            if (hour >= 9 && hour < 18) {
+            if (hour >= 10 && hour < 22) {
                 workHours.sales += sales;
                 workHours.qty += qty;
                 workHours.count++;
@@ -240,7 +240,7 @@ const TimeAnalysisEnhanced = {
                 <h4 style="margin: 0 0 15px 0; color: #2e7d32;">💼 Mesai Saati Analizi</h4>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                     <div style="background: white; padding: 15px; border-radius: 8px;">
-                        <div style="font-size: 0.9em; color: #666; margin-bottom: 5px;">Mesai Saati (09:00-18:00)</div>
+                        <div style="font-size: 0.9em; color: #666; margin-bottom: 5px;">Mesai Saati (10:00-22:00)</div>
                         <div style="font-size: 1.3em; font-weight: bold; color: #4caf50;">$${workData.workHours.sales.toLocaleString('tr-TR', {minimumFractionDigits: 0})}</div>
                         <div style="font-size: 0.85em; color: #666;">${workData.workHours.count.toLocaleString('tr-TR')} işlem (%${workPercent})</div>
                     </div>
