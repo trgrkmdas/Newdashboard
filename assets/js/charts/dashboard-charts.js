@@ -254,8 +254,11 @@ export function renderDashYearlyChart() {
 
 /**
  * Dashboard top mağazalar progress bar listesini render et
+ * PERFORMANS OPTİMİZASYONU: Artık sadece render yapıyor, data iteration yapmıyor
+ * 
+ * @param {Object|Array} dataOrAggregated - Eğer Object ise aggregated data, Array ise eski format (backward compatibility)
  */
-export function renderDashTopStoresChart(data) {
+export function renderDashTopStoresChart(dataOrAggregated) {
     const container = document.getElementById('dashTopStoresList');
     if (!container) return;
     
@@ -266,17 +269,25 @@ export function renderDashTopStoresChart(data) {
         setDashTopStoresChartInstance(null);
     }
     
-    // Optimize edilmiş veri işleme
-    const storeData = {};
-    const dataLength = data.length;
-    for (let i = 0; i < dataLength; i++) {
-        const item = data[i];
-        const store = item.store || 'Bilinmiyor';
-        if (!storeData[store]) storeData[store] = 0;
-        storeData[store] += parseFloat(item.usd_amount || 0);
+    // PERFORMANS: Eğer aggregated data geliyorsa direkt kullan, değilse eski format (backward compatibility)
+    let storeData;
+    if (Array.isArray(dataOrAggregated)) {
+        // Eski format - backward compatibility için
+        storeData = {};
+        const dataLength = dataOrAggregated.length;
+        for (let i = 0; i < dataLength; i++) {
+            const item = dataOrAggregated[i];
+            const store = item.store || 'Bilinmiyor';
+            if (!storeData[store]) storeData[store] = 0;
+            storeData[store] += parseFloat(item.usd_amount || 0);
+        }
+    } else {
+        // Yeni format - aggregated data
+        storeData = dataOrAggregated.stores || {};
     }
     
-    const top10 = Object.entries(storeData).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    // PERFORMANS: Top-k algorithm kullan (O(n log k) yerine O(n log n))
+    const top10 = getTopK(storeData, 10);
     const maxValue = top10.length > 0 ? top10[0][1] : 1; // En yüksek değer (100% için)
     
     // Progress bar listesi oluştur
@@ -308,8 +319,11 @@ export function renderDashTopStoresChart(data) {
 
 /**
  * Dashboard top satış temsilcileri progress bar listesini render et
+ * PERFORMANS OPTİMİZASYONU: Artık sadece render yapıyor, data iteration yapmıyor
+ * 
+ * @param {Object|Array} dataOrAggregated - Eğer Object ise aggregated data, Array ise eski format (backward compatibility)
  */
-export function renderDashTopSalespeopleChart(data) {
+export function renderDashTopSalespeopleChart(dataOrAggregated) {
     const container = document.getElementById('dashTopSalespeopleList');
     if (!container) return;
     
@@ -320,21 +334,29 @@ export function renderDashTopSalespeopleChart(data) {
         setDashTopSalespeopleChartInstance(null);
     }
     
-    // Optimize edilmiş veri işleme
-    const spData = {};
-    const dataLength = data.length;
-    for (let i = 0; i < dataLength; i++) {
-        const item = data[i];
-        const sp = item.sales_person || 'Bilinmiyor';
-        
-        // "Kasa" ile başlayan satış temsilcilerini filtrele
-        if (sp.trim().toLowerCase().startsWith('kasa')) continue;
-        
-        if (!spData[sp]) spData[sp] = 0;
-        spData[sp] += parseFloat(item.usd_amount || 0);
+    // PERFORMANS: Eğer aggregated data geliyorsa direkt kullan, değilse eski format (backward compatibility)
+    let spData;
+    if (Array.isArray(dataOrAggregated)) {
+        // Eski format - backward compatibility için
+        spData = {};
+        const dataLength = dataOrAggregated.length;
+        for (let i = 0; i < dataLength; i++) {
+            const item = dataOrAggregated[i];
+            const sp = item.sales_person || 'Bilinmiyor';
+            
+            // "Kasa" ile başlayan satış temsilcilerini filtrele
+            if (sp.trim().toLowerCase().startsWith('kasa')) continue;
+            
+            if (!spData[sp]) spData[sp] = 0;
+            spData[sp] += parseFloat(item.usd_amount || 0);
+        }
+    } else {
+        // Yeni format - aggregated data
+        spData = dataOrAggregated.salespeople || {};
     }
     
-    const top10 = Object.entries(spData).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    // PERFORMANS: Top-k algorithm kullan (O(n log k) yerine O(n log n))
+    const top10 = getTopK(spData, 10);
     const maxValue = top10.length > 0 ? top10[0][1] : 1;
     
     // Progress bar listesi oluştur
@@ -362,8 +384,11 @@ export function renderDashTopSalespeopleChart(data) {
 
 /**
  * Dashboard top markalar progress bar listesini render et
+ * PERFORMANS OPTİMİZASYONU: Artık sadece render yapıyor, data iteration yapmıyor
+ * 
+ * @param {Object|Array} dataOrAggregated - Eğer Object ise aggregated data, Array ise eski format (backward compatibility)
  */
-export function renderDashTopBrandsChart(data) {
+export function renderDashTopBrandsChart(dataOrAggregated) {
     const container = document.getElementById('dashTopBrandsList');
     if (!container) return;
     
@@ -374,17 +399,25 @@ export function renderDashTopBrandsChart(data) {
         setDashTopBrandsChartInstance(null);
     }
     
-    // Optimize edilmiş veri işleme
-    const brandData = {};
-    const dataLength = data.length;
-    for (let i = 0; i < dataLength; i++) {
-        const item = data[i];
-        const brand = item.brand || 'Bilinmiyor';
-        if (!brandData[brand]) brandData[brand] = 0;
-        brandData[brand] += parseFloat(item.usd_amount || 0);
+    // PERFORMANS: Eğer aggregated data geliyorsa direkt kullan, değilse eski format (backward compatibility)
+    let brandData;
+    if (Array.isArray(dataOrAggregated)) {
+        // Eski format - backward compatibility için
+        brandData = {};
+        const dataLength = dataOrAggregated.length;
+        for (let i = 0; i < dataLength; i++) {
+            const item = dataOrAggregated[i];
+            const brand = item.brand || 'Bilinmiyor';
+            if (!brandData[brand]) brandData[brand] = 0;
+            brandData[brand] += parseFloat(item.usd_amount || 0);
+        }
+    } else {
+        // Yeni format - aggregated data
+        brandData = dataOrAggregated.brands || {};
     }
     
-    const top10 = Object.entries(brandData).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    // PERFORMANS: Top-k algorithm kullan (O(n log k) yerine O(n log n))
+    const top10 = getTopK(brandData, 10);
     const maxValue = top10.length > 0 ? top10[0][1] : 1;
     
     // Progress bar listesi oluştur
@@ -412,8 +445,11 @@ export function renderDashTopBrandsChart(data) {
 
 /**
  * Dashboard top kategoriler progress bar listesini render et
+ * PERFORMANS OPTİMİZASYONU: Artık sadece render yapıyor, data iteration yapmıyor
+ * 
+ * @param {Object|Array} dataOrAggregated - Eğer Object ise aggregated data, Array ise eski format (backward compatibility)
  */
-export function renderDashTopCategoriesChart(data) {
+export function renderDashTopCategoriesChart(dataOrAggregated) {
     const container = document.getElementById('dashTopCategoriesList');
     if (!container) return;
     
@@ -424,25 +460,33 @@ export function renderDashTopCategoriesChart(data) {
         setDashTopCategoriesChartInstance(null);
     }
     
-    // Optimize edilmiş veri işleme
-    const catData = {};
-    const dataLength = data.length;
-    for (let i = 0; i < dataLength; i++) {
-        const item = data[i];
-        // Eğer category_1 "All" ise category_2 kullan, değilse category_1
-        let cat = (item.category_1 && item.category_1.toLowerCase() !== 'all') 
-            ? item.category_1 
-            : (item.category_2 || item.category_3 || 'Diğer');
-        
-        // Boş değerleri ve Analitik/Eğitim atla
-        if (!cat || cat.toLowerCase() === 'bilinmiyor') continue;
-        if (cat.toLowerCase().includes('analitik') || cat.toLowerCase().includes('eğitim')) continue;
-        
-        if (!catData[cat]) catData[cat] = 0;
-        catData[cat] += parseFloat(item.usd_amount || 0);
+    // PERFORMANS: Eğer aggregated data geliyorsa direkt kullan, değilse eski format (backward compatibility)
+    let catData;
+    if (Array.isArray(dataOrAggregated)) {
+        // Eski format - backward compatibility için
+        catData = {};
+        const dataLength = dataOrAggregated.length;
+        for (let i = 0; i < dataLength; i++) {
+            const item = dataOrAggregated[i];
+            // Eğer category_1 "All" ise category_2 kullan, değilse category_1
+            let cat = (item.category_1 && item.category_1.toLowerCase() !== 'all') 
+                ? item.category_1 
+                : (item.category_2 || item.category_3 || 'Diğer');
+            
+            // Boş değerleri ve Analitik/Eğitim atla
+            if (!cat || cat.toLowerCase() === 'bilinmiyor') continue;
+            if (cat.toLowerCase().includes('analitik') || cat.toLowerCase().includes('eğitim')) continue;
+            
+            if (!catData[cat]) catData[cat] = 0;
+            catData[cat] += parseFloat(item.usd_amount || 0);
+        }
+    } else {
+        // Yeni format - aggregated data
+        catData = dataOrAggregated.categories || {};
     }
     
-    const top10 = Object.entries(catData).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    // PERFORMANS: Top-k algorithm kullan (O(n log k) yerine O(n log n))
+    const top10 = getTopK(catData, 10);
     const maxValue = top10.length > 0 ? top10[0][1] : 1;
     
     // Progress bar listesi oluştur
@@ -470,8 +514,11 @@ export function renderDashTopCategoriesChart(data) {
 
 /**
  * Dashboard top şehirler progress bar listesini render et
+ * PERFORMANS OPTİMİZASYONU: Artık sadece render yapıyor, data iteration yapmıyor
+ * 
+ * @param {Object|Array} dataOrAggregated - Eğer Object ise aggregated data, Array ise eski format (backward compatibility)
  */
-export function renderDashTopCitiesChart(data) {
+export function renderDashTopCitiesChart(dataOrAggregated) {
     const container = document.getElementById('dashTopCitiesList');
     if (!container) return;
     
@@ -482,17 +529,25 @@ export function renderDashTopCitiesChart(data) {
         setDashTopCitiesChartInstance(null);
     }
     
-    // Optimize edilmiş veri işleme
-    const cityData = {};
-    const dataLength = data.length;
-    for (let i = 0; i < dataLength; i++) {
-        const item = data[i];
-        const city = item.partner_city || 'Bilinmiyor';
-        if (!cityData[city]) cityData[city] = 0;
-        cityData[city] += parseFloat(item.usd_amount || 0);
+    // PERFORMANS: Eğer aggregated data geliyorsa direkt kullan, değilse eski format (backward compatibility)
+    let cityData;
+    if (Array.isArray(dataOrAggregated)) {
+        // Eski format - backward compatibility için
+        cityData = {};
+        const dataLength = dataOrAggregated.length;
+        for (let i = 0; i < dataLength; i++) {
+            const item = dataOrAggregated[i];
+            const city = item.partner_city || 'Bilinmiyor';
+            if (!cityData[city]) cityData[city] = 0;
+            cityData[city] += parseFloat(item.usd_amount || 0);
+        }
+    } else {
+        // Yeni format - aggregated data
+        cityData = dataOrAggregated.cities || {};
     }
     
-    const top10 = Object.entries(cityData).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    // PERFORMANS: Top-k algorithm kullan (O(n log k) yerine O(n log n))
+    const top10 = getTopK(cityData, 10);
     const maxValue = top10.length > 0 ? top10[0][1] : 1;
     
     // Progress bar listesi oluştur
@@ -520,8 +575,11 @@ export function renderDashTopCitiesChart(data) {
 
 /**
  * Dashboard top ürünler progress bar listesini render et
+ * PERFORMANS OPTİMİZASYONU: Artık sadece render yapıyor, data iteration yapmıyor
+ * 
+ * @param {Object|Array} dataOrAggregated - Eğer Object ise aggregated data, Array ise eski format (backward compatibility)
  */
-export function renderDashTopProductsChart(data) {
+export function renderDashTopProductsChart(dataOrAggregated) {
     const container = document.getElementById('dashTopProductsList');
     if (!container) return;
     
@@ -532,17 +590,25 @@ export function renderDashTopProductsChart(data) {
         setDashTopProductsChartInstance(null);
     }
     
-    // Optimize edilmiş veri işleme
-    const productData = {};
-    const dataLength = data.length;
-    for (let i = 0; i < dataLength; i++) {
-        const item = data[i];
-        const product = item.product || 'Bilinmiyor';
-        if (!productData[product]) productData[product] = 0;
-        productData[product] += parseFloat(item.usd_amount || 0);
+    // PERFORMANS: Eğer aggregated data geliyorsa direkt kullan, değilse eski format (backward compatibility)
+    let productData;
+    if (Array.isArray(dataOrAggregated)) {
+        // Eski format - backward compatibility için
+        productData = {};
+        const dataLength = dataOrAggregated.length;
+        for (let i = 0; i < dataLength; i++) {
+            const item = dataOrAggregated[i];
+            const product = item.product || 'Bilinmiyor';
+            if (!productData[product]) productData[product] = 0;
+            productData[product] += parseFloat(item.usd_amount || 0);
+        }
+    } else {
+        // Yeni format - aggregated data
+        productData = dataOrAggregated.products || {};
     }
     
-    const top10 = Object.entries(productData).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    // PERFORMANS: Top-k algorithm kullan (O(n log k) yerine O(n log n))
+    const top10 = getTopK(productData, 10);
     const maxValue = top10.length > 0 ? top10[0][1] : 1;
     
     // Progress bar listesi oluştur
@@ -579,6 +645,141 @@ export function renderDashTopProductsChart(data) {
     });
     
     container.innerHTML = html;
+}
+
+/**
+ * PERFORMANS OPTİMİZASYONU: Top-k algorithm (min-heap kullanarak)
+ * O(n log k) complexity - O(n log n) yerine çok daha hızlı
+ * 
+ * @param {Object} dataObj - Key-value pairs (örn: {store1: 100, store2: 200})
+ * @param {number} k - Top k değer (varsayılan: 10)
+ * @returns {Array} - Top k [key, value] pairs, value'ya göre descending sıralı
+ */
+function getTopK(dataObj, k = 10) {
+    const entries = Object.entries(dataObj);
+    
+    // Küçük veri setlerinde (k'den az veya eşit) direkt sort daha hızlı
+    if (entries.length <= k) {
+        return entries.sort((a, b) => b[1] - a[1]);
+    }
+    
+    // Min-heap kullanarak top-k bul (O(n log k))
+    // Min-heap: En küçük değer root'ta, sadece k eleman tutuyoruz
+    const heap = [];
+    
+    for (const entry of entries) {
+        const value = entry[1];
+        
+        if (heap.length < k) {
+            // Heap dolu değil, ekle
+            heap.push(entry);
+            // Heap'in sonuna ekledik, bubble up yap
+            let i = heap.length - 1;
+            while (i > 0) {
+                const parent = Math.floor((i - 1) / 2);
+                if (heap[parent][1] <= heap[i][1]) break;
+                [heap[parent], heap[i]] = [heap[i], heap[parent]];
+                i = parent;
+            }
+        } else if (value > heap[0][1]) {
+            // Yeni değer heap'in minimum'undan büyük, değiştir
+            heap[0] = entry;
+            // Bubble down yap
+            let i = 0;
+            while (true) {
+                const left = 2 * i + 1;
+                const right = 2 * i + 2;
+                let smallest = i;
+                
+                if (left < heap.length && heap[left][1] < heap[smallest][1]) {
+                    smallest = left;
+                }
+                if (right < heap.length && heap[right][1] < heap[smallest][1]) {
+                    smallest = right;
+                }
+                
+                if (smallest === i) break;
+                [heap[i], heap[smallest]] = [heap[smallest], heap[i]];
+                i = smallest;
+            }
+        }
+    }
+    
+    // Heap'ten çıkar ve descending sırala
+    return heap.sort((a, b) => b[1] - a[1]);
+}
+
+/**
+ * PERFORMANS OPTİMİZASYONU: Tüm chart verilerini tek bir pass'te topla
+ * Bu fonksiyon 6 ayrı chart için gereken tüm aggregations'ı tek loop'ta yapar
+ * 
+ * @param {Array} data - İşlenecek veri array'i
+ * @returns {Object} - Tüm chart verilerini içeren obje
+ */
+export function aggregateAllChartData(data) {
+    // Tüm chart verileri için aggregation objeleri
+    const storeData = {};
+    const spData = {};
+    const brandData = {};
+    const catData = {};
+    const cityData = {};
+    const productData = {};
+    
+    // PERFORMANS: Tek loop'ta tüm chart verilerini topla
+    const dataLength = data.length;
+    for (let i = 0; i < dataLength; i++) {
+        const item = data[i];
+        const amt = parseFloat(item.usd_amount || 0);
+        
+        // Stores aggregation
+        const store = item.store || 'Bilinmiyor';
+        if (!storeData[store]) storeData[store] = 0;
+        storeData[store] += amt;
+        
+        // Salespeople aggregation (Kasa filtresi ile)
+        const sp = item.sales_person || 'Bilinmiyor';
+        if (!sp.trim().toLowerCase().startsWith('kasa')) {
+            if (!spData[sp]) spData[sp] = 0;
+            spData[sp] += amt;
+        }
+        
+        // Brands aggregation
+        const brand = item.brand || 'Bilinmiyor';
+        if (!brandData[brand]) brandData[brand] = 0;
+        brandData[brand] += amt;
+        
+        // Categories aggregation (filtreler ile)
+        let cat = (item.category_1 && item.category_1.toLowerCase() !== 'all') 
+            ? item.category_1 
+            : (item.category_2 || item.category_3 || 'Diğer');
+        
+        // Boş değerleri ve Analitik/Eğitim atla
+        if (cat && cat.toLowerCase() !== 'bilinmiyor' && 
+            !cat.toLowerCase().includes('analitik') && 
+            !cat.toLowerCase().includes('eğitim')) {
+            if (!catData[cat]) catData[cat] = 0;
+            catData[cat] += amt;
+        }
+        
+        // Cities aggregation
+        const city = item.partner_city || 'Bilinmiyor';
+        if (!cityData[city]) cityData[city] = 0;
+        cityData[city] += amt;
+        
+        // Products aggregation
+        const product = item.product || 'Bilinmiyor';
+        if (!productData[product]) productData[product] = 0;
+        productData[product] += amt;
+    }
+    
+    return {
+        stores: storeData,
+        salespeople: spData,
+        brands: brandData,
+        categories: catData,
+        cities: cityData,
+        products: productData
+    };
 }
 
 // Global erişim için

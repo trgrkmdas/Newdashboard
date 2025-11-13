@@ -12,7 +12,8 @@ import {
     renderDashTopCategoriesChart,
     renderDashTopCitiesChart,
     renderDashTopProductsChart,
-    clearYearlyChartCache
+    clearYearlyChartCache,
+    aggregateAllChartData
 } from '../../charts/dashboard-charts.js';
 import { performDashboardAIAnalysis } from '../ai/dashboard-ai-analyzer.js';
 
@@ -34,6 +35,7 @@ export async function loadDashboard() {
     // İndirim ürünleri ve iadeler hesaplamalardan düşüyor
     let totalSales = 0;
     let totalQty = 0;
+    let salesInvoicesTotal = 0; // PERFORMANS: Sepet ortalaması için satış faturalarının toplamı (ilk loop'ta hesaplanacak)
     const uniqueCustomersSet = new Set();
     const uniqueProductsSet = new Set();
     const uniqueStoresSet = new Set();
@@ -46,7 +48,8 @@ export async function loadDashboard() {
         if (shouldHideItem(item)) continue;
         
         // Toplam satış ve miktar
-        totalSales += parseFloat(item.usd_amount || 0);
+        const amt = parseFloat(item.usd_amount || 0);
+        totalSales += amt;
         totalQty += parseFloat(item.quantity || 0);
         
         // Unique değerler
@@ -56,10 +59,13 @@ export async function loadDashboard() {
         if (item.sales_person) uniqueSalespeopleSet.add(item.sales_person);
         if (item.date) uniqueDatesSet.add(item.date);
         
-        // Invoice keys (sepet ortalaması için)
+        // Invoice keys ve salesInvoicesTotal (sepet ortalaması için)
+        // PERFORMANS OPTİMİZASYONU: salesInvoicesTotal'ı da burada hesapla (gereksiz ikinci iterate'i önle)
         // DÜZELTME: Sadece satış faturaları (iade değil) ve pozitif tutarlı
-        const amt = parseFloat(item.usd_amount || 0);
         if (amt > 0 && item.move_type !== 'out_refund' && (item.move_type === 'out_invoice' || !item.move_type)) {
+            // Sepet ortalaması için satış faturalarının toplamını hesapla
+            salesInvoicesTotal += amt;
+            
             // DÜZELTME: Invoice key'ler sadece move_name veya move_id kullanmalı (product YOK)
             // Fallback'te product kullanmak yanlış - aynı faturadaki farklı ürünler farklı key oluşturur
             const invoiceKey = item.move_name || item.move_id || `${item.date || ''}-${item.partner || ''}-${item.store || ''}`;
@@ -81,16 +87,7 @@ export async function loadDashboard() {
     const dailyAverage = uniqueDates > 0 ? totalSales / uniqueDates : 0;
     
     // Sepet Ortalaması = Sadece Satış Faturalarının Toplamı / Satış Fatura Sayısı (İadeler Hariç)
-    // DÜZELTME: totalSales yerine sadece satış faturalarının toplamını hesapla
-    const salesInvoicesTotal = Array.from(window.allData).reduce((sum, item) => {
-        if (shouldHideItem(item)) return sum;
-        const amt = parseFloat(item.usd_amount || 0);
-        // Sadece satış faturaları (iade değil) ve pozitif tutarlı
-        if (amt > 0 && item.move_type !== 'out_refund' && (item.move_type === 'out_invoice' || !item.move_type)) {
-            return sum + amt;
-        }
-        return sum;
-    }, 0);
+    // PERFORMANS OPTİMİZASYONU: salesInvoicesTotal artık ilk loop'ta hesaplanıyor (gereksiz ikinci iterate kaldırıldı)
     const basketAverage = uniqueInvoices > 0 ? salesInvoicesTotal / uniqueInvoices : 0;
     
     safeConsole.log('📅 Benzersiz Gün Sayısı (Tüm Zamanlar):', uniqueDates);
@@ -103,29 +100,33 @@ export async function loadDashboard() {
     // Yıllık karşılaştırma (hemen render et)
     renderDashYearlyChart();
     
+    // PERFORMANS OPTİMİZASYONU: Tüm chart verilerini tek bir pass'te topla
+    // Bu, 6 ayrı chart için 6 ayrı full iteration yerine tek bir iteration yapar
+    const aggregatedChartData = aggregateAllChartData(window.allData);
+    
     // Top performanslar (TÜM ZAMANLAR) - optimize edilmiş batch rendering
     // Chart'ları sırayla render et (her biri arasında requestAnimationFrame ile mola)
     // Bu, main thread'i bloklamadan daha smooth bir deneyim sağlar
     
-    // İlk chart'ı hemen render et
-    renderDashTopStoresChart(window.allData);
+    // İlk chart'ı hemen render et (aggregated data ile)
+    renderDashTopStoresChart(aggregatedChartData);
     
     // Diğer chart'ları sırayla render et (her biri arasında kısa bir mola)
     // requestAnimationFrame kullanarak browser'a render fırsatı ver
     await new Promise(resolve => requestAnimationFrame(resolve));
-    renderDashTopSalespeopleChart(window.allData);
+    renderDashTopSalespeopleChart(aggregatedChartData);
     
     await new Promise(resolve => requestAnimationFrame(resolve));
-    renderDashTopBrandsChart(window.allData);
+    renderDashTopBrandsChart(aggregatedChartData);
     
     await new Promise(resolve => requestAnimationFrame(resolve));
-    renderDashTopCategoriesChart(window.allData);
+    renderDashTopCategoriesChart(aggregatedChartData);
     
     await new Promise(resolve => requestAnimationFrame(resolve));
-    renderDashTopCitiesChart(window.allData);
+    renderDashTopCitiesChart(aggregatedChartData);
     
     await new Promise(resolve => requestAnimationFrame(resolve));
-    renderDashTopProductsChart(window.allData);
+    renderDashTopProductsChart(aggregatedChartData);
     
     // AI Analizi (non-blocking - requestIdleCallback ile)
     if (typeof requestIdleCallback !== 'undefined') {
