@@ -183,7 +183,13 @@ export function searchProduct() {
     
     // Arama (ürün adı, marka, kategori, veya ürün kodu)
     const searchLower = searchTerm.toLowerCase();
+    // DÜZELTME: BRUT hesaplama (Dashboard ile tutarlılık için)
+    // shouldHideItem ile iadeler ve indirim ürünleri filtreleniyor
     let results = window.allData.filter(item => {
+        // shouldHideItem kontrolü (iadeler ve indirim ürünleri filtreleniyor)
+        if (typeof window.shouldHideItem === 'function' && window.shouldHideItem(item)) {
+            return false;
+        }
         const product = (item.product || '').toLowerCase();
         const brand = (item.brand || '').toLowerCase();
         const category1 = (item.category_1 || '').toLowerCase();

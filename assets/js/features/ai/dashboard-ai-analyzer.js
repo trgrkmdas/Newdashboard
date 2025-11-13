@@ -9,8 +9,19 @@ export function performDashboardAIAnalysis() {
     
     const currentYear = new Date().getFullYear();
     const lastYear = currentYear - 1;
-    const thisYearData = window.allData.filter(item => item.date && item.date.startsWith(currentYear.toString()));
-    const lastYearData = window.allData.filter(item => item.date && item.date.startsWith(lastYear.toString()));
+    const shouldHideItem = window.shouldHideItem || (() => false);
+    
+    // DÜZELTME: İade faturaları, indirim ürünleri ve hizmet ürünlerini filtrele
+    const thisYearData = window.allData.filter(item => {
+        if (!item.date || !item.date.startsWith(currentYear.toString())) return false;
+        if (shouldHideItem(item)) return false;
+        return true;
+    });
+    const lastYearData = window.allData.filter(item => {
+        if (!item.date || !item.date.startsWith(lastYear.toString())) return false;
+        if (shouldHideItem(item)) return false;
+        return true;
+    });
     
     // ========== VERİ GÜNCELLEME TARİHİ VE İVME HESAPLAMA ==========
     const allDates = window.allData.map(item => item.date).filter(d => d).sort();
@@ -26,8 +37,15 @@ export function performDashboardAIAnalysis() {
     safeConsole.log('📅 Son veri güncelleme tarihi:', dataUpdateInfo);
     
     // ========== YILLIK KARŞILAŞTIRMA (İVME BAZLI) ==========
-    const totalSalesThisYear = thisYearData.reduce((sum, item) => sum + parseFloat(item.usd_amount || 0), 0);
-    const totalSalesLastYear = lastYearData.reduce((sum, item) => sum + parseFloat(item.usd_amount || 0), 0);
+    // DÜZELTME: Güvenli sayı dönüşümü ve NaN kontrolü
+    const totalSalesThisYear = thisYearData.reduce((sum, item) => {
+        const amount = parseFloat(item.usd_amount || 0);
+        return sum + (isNaN(amount) ? 0 : amount);
+    }, 0);
+    const totalSalesLastYear = lastYearData.reduce((sum, item) => {
+        const amount = parseFloat(item.usd_amount || 0);
+        return sum + (isNaN(amount) ? 0 : amount);
+    }, 0);
     
     // Bu yıl için geçen gün sayısını hesapla (veri güncelleme tarihine göre)
     const startOfYear = new Date(currentYear, 0, 1);
@@ -59,12 +77,14 @@ export function performDashboardAIAnalysis() {
     thisYearData.forEach(item => {
         const store = item.store || 'Bilinmiyor';
         if (!storeData[store]) storeData[store] = 0;
-        storeData[store] += parseFloat(item.usd_amount || 0);
+        const amount = parseFloat(item.usd_amount || 0);
+        storeData[store] += (isNaN(amount) ? 0 : amount);
     });
     lastYearData.forEach(item => {
         const store = item.store || 'Bilinmiyor';
         if (!storeDataLastYear[store]) storeDataLastYear[store] = 0;
-        storeDataLastYear[store] += parseFloat(item.usd_amount || 0);
+        const amount = parseFloat(item.usd_amount || 0);
+        storeDataLastYear[store] += (isNaN(amount) ? 0 : amount);
     });
     const sortedStores = Object.entries(storeData).sort((a, b) => b[1] - a[1]);
     const top10Stores = sortedStores.slice(0, 10);
@@ -85,12 +105,14 @@ export function performDashboardAIAnalysis() {
     thisYearData.forEach(item => {
         const sp = item.sales_person || 'Bilinmiyor';
         if (!spData[sp]) spData[sp] = 0;
-        spData[sp] += parseFloat(item.usd_amount || 0);
+        const amount = parseFloat(item.usd_amount || 0);
+        spData[sp] += (isNaN(amount) ? 0 : amount);
     });
     lastYearData.forEach(item => {
         const sp = item.sales_person || 'Bilinmiyor';
         if (!spDataLastYear[sp]) spDataLastYear[sp] = 0;
-        spDataLastYear[sp] += parseFloat(item.usd_amount || 0);
+        const amount = parseFloat(item.usd_amount || 0);
+        spDataLastYear[sp] += (isNaN(amount) ? 0 : amount);
     });
     const sortedSP = Object.entries(spData).sort((a, b) => b[1] - a[1]);
     const top10SP = sortedSP.slice(0, 10);
@@ -108,12 +130,14 @@ export function performDashboardAIAnalysis() {
     thisYearData.forEach(item => {
         const brand = item.brand || 'Bilinmiyor';
         if (!brandData[brand]) brandData[brand] = 0;
-        brandData[brand] += parseFloat(item.usd_amount || 0);
+        const amount = parseFloat(item.usd_amount || 0);
+        brandData[brand] += (isNaN(amount) ? 0 : amount);
     });
     lastYearData.forEach(item => {
         const brand = item.brand || 'Bilinmiyor';
         if (!brandDataLastYear[brand]) brandDataLastYear[brand] = 0;
-        brandDataLastYear[brand] += parseFloat(item.usd_amount || 0);
+        const amount = parseFloat(item.usd_amount || 0);
+        brandDataLastYear[brand] += (isNaN(amount) ? 0 : amount);
     });
     const sortedBrands = Object.entries(brandData).sort((a, b) => b[1] - a[1]);
     const top10Brands = sortedBrands.slice(0, 10);
@@ -134,12 +158,14 @@ export function performDashboardAIAnalysis() {
     thisYearData.forEach(item => {
         const category = item.category_2 || 'Bilinmiyor';
         if (!categoryData[category]) categoryData[category] = 0;
-        categoryData[category] += parseFloat(item.usd_amount || 0);
+        const amount = parseFloat(item.usd_amount || 0);
+        categoryData[category] += (isNaN(amount) ? 0 : amount);
     });
     lastYearData.forEach(item => {
         const category = item.category_2 || 'Bilinmiyor';
         if (!categoryDataLastYear[category]) categoryDataLastYear[category] = 0;
-        categoryDataLastYear[category] += parseFloat(item.usd_amount || 0);
+        const amount = parseFloat(item.usd_amount || 0);
+        categoryDataLastYear[category] += (isNaN(amount) ? 0 : amount);
     });
     const sortedCategories = Object.entries(categoryData).sort((a, b) => b[1] - a[1]);
     const top10Categories = sortedCategories.slice(0, 10);
@@ -166,7 +192,8 @@ export function performDashboardAIAnalysis() {
             monthlyDataThisYear[month] = 0;
             monthlyDaysThisYear[month] = new Set();
         }
-        monthlyDataThisYear[month] += parseFloat(item.usd_amount || 0);
+        const amount = parseFloat(item.usd_amount || 0);
+        monthlyDataThisYear[month] += (isNaN(amount) ? 0 : amount);
         monthlyDaysThisYear[month].add(day);
     });
     
@@ -177,7 +204,8 @@ export function performDashboardAIAnalysis() {
             monthlyDataLastYear[month] = 0;
             monthlyDaysLastYear[month] = new Set();
         }
-        monthlyDataLastYear[month] += parseFloat(item.usd_amount || 0);
+        const amount = parseFloat(item.usd_amount || 0);
+        monthlyDataLastYear[month] += (isNaN(amount) ? 0 : amount);
         monthlyDaysLastYear[month].add(day);
     });
     
@@ -204,29 +232,47 @@ export function performDashboardAIAnalysis() {
     const uniqueCustomers = new Set(thisYearData.map(item => item.partner)).size;
     
     // Sepet ortalaması için fatura sayısı (sağlamlaştırılmış - sadece satış faturaları)
-    const invoiceKeysThisYear = thisYearData
-        .filter(item => {
-            const amt = parseFloat(item.usd_amount || 0);
-            if (item.move_type) return item.move_type === 'out_invoice';
-            return amt > 0;
-        })
-        .map(item => item.move_name || item.move_id || `${item.date || ''}-${item.partner || ''}-${item.store || ''}-${item.product || ''}`)
+    // DÜZELTME: Sadece satış faturaları (iade değil) ve pozitif tutarlı
+    const salesInvoicesThisYear = thisYearData.filter(item => {
+        const amt = parseFloat(item.usd_amount || 0);
+        if (item.move_type === 'out_refund') return false;
+        if (item.move_type) return item.move_type === 'out_invoice';
+        return amt > 0;
+    });
+    
+    // DÜZELTME: Invoice key'ler sadece move_name veya move_id kullanmalı (product YOK)
+    const invoiceKeysThisYear = salesInvoicesThisYear
+        .map(item => item.move_name || item.move_id || `${item.date || ''}-${item.partner || ''}-${item.store || ''}`)
         .filter(Boolean);
     const uniqueInvoices = new Set(invoiceKeysThisYear).size;
-    const avgBasketValue = uniqueInvoices > 0 ? totalSalesThisYear / uniqueInvoices : 0;
+    
+    // DÜZELTME: Pay (totalSalesThisYear) yerine sadece satış faturalarının toplamını kullan
+    const salesInvoicesTotalThisYear = salesInvoicesThisYear.reduce((sum, item) => {
+        return sum + parseFloat(item.usd_amount || 0);
+    }, 0);
+    const avgBasketValue = uniqueInvoices > 0 ? salesInvoicesTotalThisYear / uniqueInvoices : 0;
     const avgCustomerValue = uniqueCustomers > 0 ? totalSalesThisYear / uniqueCustomers : 0;
     
     // Sepet ortalaması geçen yıl (sağlamlaştırılmış)
-    const invoiceKeysLastYear = lastYearData
-        .filter(item => {
-            const amt = parseFloat(item.usd_amount || 0);
-            if (item.move_type) return item.move_type === 'out_invoice';
-            return amt > 0;
-        })
-        .map(item => item.move_name || item.move_id || `${item.date || ''}-${item.partner || ''}-${item.store || ''}-${item.product || ''}`)
+    // DÜZELTME: Sadece satış faturaları (iade değil) ve pozitif tutarlı
+    const salesInvoicesLastYear = lastYearData.filter(item => {
+        const amt = parseFloat(item.usd_amount || 0);
+        if (item.move_type === 'out_refund') return false;
+        if (item.move_type) return item.move_type === 'out_invoice';
+        return amt > 0;
+    });
+    
+    // DÜZELTME: Invoice key'ler sadece move_name veya move_id kullanmalı (product YOK)
+    const invoiceKeysLastYear = salesInvoicesLastYear
+        .map(item => item.move_name || item.move_id || `${item.date || ''}-${item.partner || ''}-${item.store || ''}`)
         .filter(Boolean);
     const uniqueInvoicesLastYear = new Set(invoiceKeysLastYear).size;
-    const avgBasketValueLastYear = uniqueInvoicesLastYear > 0 ? totalSalesLastYear / uniqueInvoicesLastYear : 0;
+    
+    // DÜZELTME: Pay (totalSalesLastYear) yerine sadece satış faturalarının toplamını kullan
+    const salesInvoicesTotalLastYear = salesInvoicesLastYear.reduce((sum, item) => {
+        return sum + parseFloat(item.usd_amount || 0);
+    }, 0);
+    const avgBasketValueLastYear = uniqueInvoicesLastYear > 0 ? salesInvoicesTotalLastYear / uniqueInvoicesLastYear : 0;
     const basketGrowth = avgBasketValueLastYear > 0 ? ((avgBasketValue - avgBasketValueLastYear) / avgBasketValueLastYear * 100) : 0;
     
     const lastMonthName = monthNames[parseInt(lastMonth) - 1];
@@ -405,10 +451,17 @@ export function performAIAnalysis() {
  * Veri analizi
  */
 export function analyzeData(data) {
+    // DÜZELTME: Güvenli sayı dönüşümü ve NaN kontrolü
     // Temel metrikler
-    const totalUSD = data.reduce((sum, item) => sum + parseFloat(item.usd_amount || 0), 0);
-    const totalQty = data.reduce((sum, item) => sum + parseFloat(item.quantity || 0), 0);
-    const avgOrderValue = totalUSD / data.length;
+    const totalUSD = data.reduce((sum, item) => {
+        const amount = parseFloat(item.usd_amount || 0);
+        return sum + (isNaN(amount) ? 0 : amount);
+    }, 0);
+    const totalQty = data.reduce((sum, item) => {
+        const qty = parseFloat(item.quantity || 0);
+        return sum + (isNaN(qty) ? 0 : qty);
+    }, 0);
+    const avgOrderValue = data.length > 0 ? totalUSD / data.length : 0;
     
     // Mağaza analizi
     const storeData = {};
@@ -417,9 +470,11 @@ export function analyzeData(data) {
         if (!storeData[store]) {
             storeData[store] = {sales: 0, count: 0, qty: 0};
         }
-        storeData[store].sales += parseFloat(item.usd_amount || 0);
+        const amount = parseFloat(item.usd_amount || 0);
+        const qty = parseFloat(item.quantity || 0);
+        storeData[store].sales += (isNaN(amount) ? 0 : amount);
         storeData[store].count += 1;
-        storeData[store].qty += parseFloat(item.quantity || 0);
+        storeData[store].qty += (isNaN(qty) ? 0 : qty);
     });
     
     // Marka analizi
@@ -429,7 +484,8 @@ export function analyzeData(data) {
         if (!brandData[brand]) {
             brandData[brand] = {sales: 0, count: 0};
         }
-        brandData[brand].sales += parseFloat(item.usd_amount || 0);
+        const amount = parseFloat(item.usd_amount || 0);
+        brandData[brand].sales += (isNaN(amount) ? 0 : amount);
         brandData[brand].count += 1;
     });
     
@@ -440,7 +496,8 @@ export function analyzeData(data) {
         if (!categoryData[cat]) {
             categoryData[cat] = {sales: 0, count: 0};
         }
-        categoryData[cat].sales += parseFloat(item.usd_amount || 0);
+        const amount = parseFloat(item.usd_amount || 0);
+        categoryData[cat].sales += (isNaN(amount) ? 0 : amount);
         categoryData[cat].count += 1;
     });
     
@@ -451,7 +508,8 @@ export function analyzeData(data) {
         if (!customerData[customer]) {
             customerData[customer] = {sales: 0, count: 0};
         }
-        customerData[customer].sales += parseFloat(item.usd_amount || 0);
+        const amount = parseFloat(item.usd_amount || 0);
+        customerData[customer].sales += (isNaN(amount) ? 0 : amount);
         customerData[customer].count += 1;
     });
     
@@ -462,7 +520,8 @@ export function analyzeData(data) {
         if (!salesPersonData[person]) {
             salesPersonData[person] = {sales: 0, count: 0};
         }
-        salesPersonData[person].sales += parseFloat(item.usd_amount || 0);
+        const amount = parseFloat(item.usd_amount || 0);
+        salesPersonData[person].sales += (isNaN(amount) ? 0 : amount);
         salesPersonData[person].count += 1;
     });
     
@@ -474,7 +533,8 @@ export function analyzeData(data) {
         if (!dateData[month]) {
             dateData[month] = {sales: 0, count: 0};
         }
-        dateData[month].sales += parseFloat(item.usd_amount || 0);
+        const amount = parseFloat(item.usd_amount || 0);
+        dateData[month].sales += (isNaN(amount) ? 0 : amount);
         dateData[month].count += 1;
     });
     

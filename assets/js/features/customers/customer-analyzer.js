@@ -89,6 +89,9 @@ export function analyzeCustomers() {
     
     // Mağaza filtresi dropdown'ını doldur (eğer boşsa)
     populateCustomerStoreFilter();
+    
+    // RFM Analizi
+    performRFMAnalysis();
 }
 
 /**
@@ -155,11 +158,17 @@ export function renderTopCustomers(topCustomers) {
 }
 
 /**
- * Müşteri şehir grafiğini render et
+ * Müşteri şehir dağılımını progress bar listesi olarak render et
  */
 export function renderCustomerCityChart(customers) {
-    const ctx = document.getElementById('customerCityChart');
-    if (!ctx) return;
+    const container = document.getElementById('customerCityList');
+    if (!container) return;
+    
+    // Eski chart instance'ı temizle (varsa)
+    if (customerCityChart) {
+        customerCityChart.destroy();
+        customerCityChart = null;
+    }
     
     // Şehir bazında müşteri sayısı
     const cityData = {};
@@ -170,65 +179,67 @@ export function renderCustomerCityChart(customers) {
     
     const sortedCities = Object.entries(cityData)
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 10);
+        .slice(0, 15); // Top 15 şehir
     
     // Toplam müşteri sayısı (yüzde hesaplama için)
     const totalCustomers = sortedCities.reduce((sum, c) => sum + c[1], 0);
+    const allCustomersTotal = customers.length;
+    const maxValue = sortedCities.length > 0 ? sortedCities[0][1] : 1; // En yüksek değer (100% için)
     
-    if (customerCityChart) {
-        customerCityChart.destroy();
-    }
+    // Premium gradient renkler (her şehir için farklı renk)
+    const premiumColors = [
+        'linear-gradient(90deg, #10B981, #3B82F6)',      // Emerald to Blue
+        'linear-gradient(90deg, #3B82F6, #8B5CF6)',      // Blue to Purple
+        'linear-gradient(90deg, #8B5CF6, #EC4899)',      // Purple to Pink
+        'linear-gradient(90deg, #EC4899, #F97316)',      // Pink to Orange
+        'linear-gradient(90deg, #F97316, #22C55E)',      // Orange to Green
+        'linear-gradient(90deg, #22C55E, #6366F1)',      // Green to Indigo
+        'linear-gradient(90deg, #6366F1, #F59E0B)',      // Indigo to Amber
+        'linear-gradient(90deg, #F59E0B, #EF4444)',       // Amber to Red
+        'linear-gradient(90deg, #EF4444, #A855F7)',       // Red to Violet
+        'linear-gradient(90deg, #A855F7, #10B981)',      // Violet to Emerald
+        'linear-gradient(90deg, #10B981, #3B82F6)',      // Repeat
+        'linear-gradient(90deg, #3B82F6, #8B5CF6)',
+        'linear-gradient(90deg, #8B5CF6, #EC4899)',
+        'linear-gradient(90deg, #EC4899, #F97316)',
+        'linear-gradient(90deg, #F97316, #22C55E)'
+    ];
     
-    // Legend'da gösterilecek etiketler: "Şehir Adı (Sayı - %)"
-    const labelsWithStats = sortedCities.map(c => {
-        const percentage = totalCustomers > 0 ? ((c[1] / totalCustomers) * 100).toFixed(1) : '0.0';
-        return `${c[0]} (${c[1].toLocaleString('tr-TR')} - %${percentage})`;
+    // Progress bar listesi oluştur
+    let html = '';
+    sortedCities.forEach((city, index) => {
+        const cityName = city[0];
+        const cityValue = city[1];
+        const percentage = (cityValue / maxValue) * 100;
+        const percentageOfTotal = totalCustomers > 0 ? ((cityValue / totalCustomers) * 100).toFixed(1) : '0.0';
+        const gradientColor = premiumColors[index % premiumColors.length];
+        
+        html += `
+            <div class="store-item-progress">
+                <div class="store-header-progress">
+                    <span class="store-rank-progress">${index + 1}</span>
+                    <span class="store-name-progress">${cityName}</span>
+                    <span class="store-value-progress">${cityValue.toLocaleString('tr-TR')} müşteri (%${percentageOfTotal})</span>
+                </div>
+                <div class="progress-bar-store" style="background: ${gradientColor}; width: ${percentage}%;"></div>
+            </div>
+        `;
     });
     
-    customerCityChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: labelsWithStats,
-            datasets: [{
-                data: sortedCities.map(c => c[1]),
-                backgroundColor: [
-                    'rgba(102, 126, 234, 0.8)',
-                    'rgba(118, 75, 162, 0.8)',
-                    'rgba(255, 99, 132, 0.8)',
-                    'rgba(54, 162, 235, 0.8)',
-                    'rgba(255, 206, 86, 0.8)',
-                    'rgba(75, 192, 192, 0.8)',
-                    'rgba(153, 102, 255, 0.8)',
-                    'rgba(255, 159, 64, 0.8)',
-                    'rgba(199, 199, 199, 0.8)',
-                    'rgba(83, 102, 255, 0.8)'
-                ]
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'right'
-                },
-                datalabels: {
-                    display: false // Pastanın içinde yüzde gösterme
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const label = context.label || '';
-                            const value = context.parsed || 0;
-                            // Label zaten "Şehir Adı (Sayı - %Yüzde)" formatında, direkt döndür
-                            return label;
-                        }
-                    }
-                }
-            }
-        },
-        plugins: [ChartDataLabels]
-    });
+    // Toplam müşteri bilgisi ekle
+    html = `
+        <div style="text-align: center; margin-bottom: 20px; padding: 15px; background: rgba(16, 185, 129, 0.1); border-radius: 10px; border: 1px solid rgba(16, 185, 129, 0.3);">
+            <div style="font-size: 1.8em; font-weight: 700; color: #10B981; margin-bottom: 5px;">
+                ${allCustomersTotal.toLocaleString('tr-TR')}
+            </div>
+            <div style="font-size: 0.9em; color: #94a3b8; font-weight: 500;">
+                Toplam Müşteri
+            </div>
+        </div>
+        ${html}
+    `;
+    
+    container.innerHTML = html;
 }
 
 /**
@@ -424,9 +435,15 @@ export function searchCustomerProfileMain() {
     safeConsole.log('🔍 Müşteri aranıyor:', searchQuery);
     
     // Müşteri verilerini filtrele (fuzzy matching)
-    const customerData = allData.filter(item => 
-        item.partner && item.partner.toLowerCase().includes(searchQuery)
-    );
+    // DÜZELTME: BRUT hesaplama (Dashboard ile tutarlılık için)
+    // shouldHideItem ile iadeler ve indirim ürünleri filtreleniyor
+    const customerData = allData.filter(item => {
+        // shouldHideItem kontrolü (iadeler ve indirim ürünleri filtreleniyor)
+        if (typeof window.shouldHideItem === 'function' && window.shouldHideItem(item)) {
+            return false;
+        }
+        return item.partner && item.partner.toLowerCase().includes(searchQuery);
+    });
     
     if (customerData.length === 0) {
         document.getElementById('customerProfileMainContainer').style.display = 'none';
@@ -1172,6 +1189,427 @@ function highlightCustomerSuggestion(items) {
             item.scrollIntoView({block: 'nearest'});
         } else {
             item.style.background = 'white';
+        }
+    });
+}
+
+/**
+ * RFM Analizi - Recency, Frequency, Monetary
+ */
+export function performRFMAnalysis() {
+    const allData = getAllData();
+    
+    // Mağaza filtresi
+    const selectedStore = document.getElementById('customerStoreFilter')?.value || '';
+    
+    // Müşteri verilerini topla (fatura bazında frequency için)
+    const customerData = {};
+    const today = new Date();
+    
+    allData.forEach(item => {
+        // Mağaza filtresi kontrolü
+        if (selectedStore && item.store !== selectedStore) {
+            return;
+        }
+        
+        // İade ve indirim ürünlerini atla (sadece gerçek satışlar)
+        if (item.is_refund || item.is_discount || item.is_service) {
+            return;
+        }
+        
+        const partner = item.partner;
+        if (!partner || !partner.trim()) return;
+        
+        const partnerName = partner.trim();
+        
+        if (!customerData[partnerName]) {
+            customerData[partnerName] = {
+                name: partnerName,
+                totalSales: 0,
+                invoices: new Set(), // Fatura numaraları (frequency için)
+                lastOrderDate: null,
+                city: item.partner_city || 'Bilinmiyor'
+            };
+        }
+        
+        // Monetary: Toplam satış
+        const amount = parseFloat(item.usd_amount || 0);
+        if (amount > 0) {
+            customerData[partnerName].totalSales += amount;
+        }
+        
+        // Frequency: Fatura numarası (move_name)
+        if (item.move_name && item.move_name.trim()) {
+            customerData[partnerName].invoices.add(item.move_name.trim());
+        }
+        
+        // Recency: Son alışveriş tarihi
+        if (item.date) {
+            const orderDate = new Date(item.date);
+            if (!customerData[partnerName].lastOrderDate || orderDate > customerData[partnerName].lastOrderDate) {
+                customerData[partnerName].lastOrderDate = orderDate;
+            }
+        }
+    });
+    
+    // RFM skorlarını hesapla (lastOrderDate null olanları filtrele)
+    const customersWithRFM = Object.values(customerData)
+        .filter(customer => customer.lastOrderDate !== null) // Null tarihli müşterileri filtrele
+        .map(customer => {
+            // Recency: Son alışverişten bugüne kadar geçen gün sayısı
+            const diffTime = today - customer.lastOrderDate;
+            const recencyDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            
+            // Frequency: Fatura sayısı
+            const frequency = customer.invoices.size;
+            
+            // Monetary: Toplam satış tutarı
+            const monetary = customer.totalSales;
+            
+            return {
+                ...customer,
+                recencyDays,
+                frequency,
+                monetary,
+                invoiceCount: frequency // UI için
+            };
+        });
+    
+    // RFM skorları için eşik değerleri hesapla (quantile bazlı)
+    const recencyValues = customersWithRFM.map(c => c.recencyDays).sort((a, b) => a - b);
+    const frequencyValues = customersWithRFM.map(c => c.frequency).sort((a, b) => a - b);
+    const monetaryValues = customersWithRFM.map(c => c.monetary).sort((a, b) => a - b);
+    
+    // Quantile hesaplama fonksiyonu
+    const getQuantile = (arr, q) => {
+        if (!arr || arr.length === 0) return 0; // Boş array kontrolü
+        const index = Math.floor((arr.length - 1) * q);
+        return arr[index] || 0;
+    };
+    
+    // RFM skorları için eşikler (5 seviye için 4 eşik)
+    const recencyThresholds = [
+        getQuantile(recencyValues, 0.2), // 20% - En yeni (5 puan)
+        getQuantile(recencyValues, 0.4), // 40% - 4 puan
+        getQuantile(recencyValues, 0.6), // 60% - 3 puan
+        getQuantile(recencyValues, 0.8)  // 80% - 2 puan
+        // 1 puan: En eski
+    ];
+    
+    const frequencyThresholds = [
+        getQuantile(frequencyValues, 0.2), // 20% - En az (1 puan)
+        getQuantile(frequencyValues, 0.4), // 40% - 2 puan
+        getQuantile(frequencyValues, 0.6), // 60% - 3 puan
+        getQuantile(frequencyValues, 0.8)  // 80% - 4 puan
+        // 5 puan: En çok
+    ];
+    
+    const monetaryThresholds = [
+        getQuantile(monetaryValues, 0.2), // 20% - En az (1 puan)
+        getQuantile(monetaryValues, 0.4), // 40% - 2 puan
+        getQuantile(monetaryValues, 0.6), // 60% - 3 puan
+        getQuantile(monetaryValues, 0.8)  // 80% - 4 puan
+        // 5 puan: En çok
+    ];
+    
+    // RFM skorlarını hesapla ve segmentasyon yap
+    const customersWithScores = customersWithRFM.map(customer => {
+        // Recency skoru (düşük gün = yüksek skor)
+        let recencyScore = 1;
+        if (customer.recencyDays <= recencyThresholds[0]) recencyScore = 5;
+        else if (customer.recencyDays <= recencyThresholds[1]) recencyScore = 4;
+        else if (customer.recencyDays <= recencyThresholds[2]) recencyScore = 3;
+        else if (customer.recencyDays <= recencyThresholds[3]) recencyScore = 2;
+        
+        // Frequency skoru (yüksek fatura = yüksek skor)
+        let frequencyScore = 1;
+        if (customer.frequency >= frequencyThresholds[3]) frequencyScore = 5;
+        else if (customer.frequency >= frequencyThresholds[2]) frequencyScore = 4;
+        else if (customer.frequency >= frequencyThresholds[1]) frequencyScore = 3;
+        else if (customer.frequency >= frequencyThresholds[0]) frequencyScore = 2;
+        
+        // Monetary skoru (yüksek tutar = yüksek skor)
+        let monetaryScore = 1;
+        if (customer.monetary >= monetaryThresholds[3]) monetaryScore = 5;
+        else if (customer.monetary >= monetaryThresholds[2]) monetaryScore = 4;
+        else if (customer.monetary >= monetaryThresholds[1]) monetaryScore = 3;
+        else if (customer.monetary >= monetaryThresholds[0]) monetaryScore = 2;
+        
+        // RFM segmentasyonu
+        const rfmScore = `${recencyScore}${frequencyScore}${monetaryScore}`;
+        let segment = 'Diğer';
+        let segmentColor = '#6c757d';
+        let segmentDescription = '';
+        
+        // Segment tanımları
+        if (recencyScore >= 4 && frequencyScore >= 4 && monetaryScore >= 4) {
+            segment = 'Champions';
+            segmentColor = '#10B981';
+            segmentDescription = 'En değerli müşteriler. Özel kampanyalar ve öncelikli hizmet.';
+        } else if (recencyScore >= 3 && frequencyScore >= 3 && monetaryScore >= 3) {
+            segment = 'Loyal Customers';
+            segmentColor = '#3B82F6';
+            segmentDescription = 'Sadık müşteriler. Düzenli alışveriş yapıyorlar.';
+        } else if (recencyScore >= 3 && frequencyScore <= 2 && monetaryScore >= 3) {
+            segment = 'Potential Loyalists';
+            segmentColor = '#8B5CF6';
+            segmentDescription = 'Potansiyel sadık müşteriler. Sık alışveriş yapmıyorlar ama yüksek harcama yapıyorlar.';
+        } else if (recencyScore >= 4 && frequencyScore <= 2 && monetaryScore <= 2) {
+            segment = 'New Customers';
+            segmentColor = '#F59E0B';
+            segmentDescription = 'Yeni müşteriler. Henüz alışveriş alışkanlıkları oluşmamış.';
+        } else if (recencyScore <= 2 && frequencyScore >= 3 && monetaryScore >= 3) {
+            segment = 'At Risk';
+            segmentColor = '#EF4444';
+            segmentDescription = 'Kayıp riski olan müşteriler. Hemen iletişime geçilmeli.';
+        } else if (recencyScore <= 2 && frequencyScore <= 2 && monetaryScore >= 3) {
+            segment = 'Cannot Lose Them';
+            segmentColor = '#DC2626';
+            segmentDescription = 'Kaybedilmemesi gereken müşteriler. Acil müdahale gerekli.';
+        } else if (recencyScore <= 2 && frequencyScore <= 2 && monetaryScore <= 2) {
+            segment = 'Lost';
+            segmentColor = '#9CA3AF';
+            segmentDescription = 'Kayıp müşteriler. Yeniden kazanma kampanyaları gerekli.';
+        } else if (recencyScore >= 3 && frequencyScore >= 3 && monetaryScore <= 2) {
+            segment = 'Need Attention';
+            segmentColor = '#F97316';
+            segmentDescription = 'Dikkat gerektiren müşteriler. Sepet büyüklüğü artırılabilir.';
+        }
+        
+        return {
+            ...customer,
+            recencyScore,
+            frequencyScore,
+            monetaryScore,
+            rfmScore,
+            segment,
+            segmentColor,
+            segmentDescription
+        };
+    });
+    
+    // RFM tablosunu render et
+    renderRFMTable(customersWithScores);
+    
+    // RFM segment dağılımını render et
+    renderRFMSegmentChart(customersWithScores);
+}
+
+/**
+ * HTML escape fonksiyonu (XSS koruması)
+ */
+function escapeHtml(text) {
+    if (!text) return '';
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return String(text).replace(/[&<>"']/g, m => map[m]);
+}
+
+/**
+ * JavaScript string escape fonksiyonu (onclick için)
+ */
+function escapeJsString(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/"/g, '\\"')
+        .replace(/`/g, '\\`')
+        .replace(/\n/g, '\\n')
+        .replace(/\r/g, '\\r')
+        .replace(/\t/g, '\\t');
+}
+
+/**
+ * RFM tablosunu render et
+ */
+function renderRFMTable(customers) {
+    const container = document.getElementById('rfmTableContainer');
+    if (!container) return;
+    
+    // Segment bazında grupla
+    const segmentCounts = {};
+    customers.forEach(c => {
+        if (!segmentCounts[c.segment]) {
+            segmentCounts[c.segment] = {
+                count: 0,
+                totalSales: 0,
+                color: c.segmentColor
+            };
+        }
+        segmentCounts[c.segment].count++;
+        segmentCounts[c.segment].totalSales += c.monetary;
+    });
+    
+    // Sırala (toplam satışa göre)
+    const sortedCustomers = customers.sort((a, b) => {
+        // Önce segment önceliğine göre
+        const segmentPriority = {
+            'Champions': 1,
+            'Loyal Customers': 2,
+            'Potential Loyalists': 3,
+            'New Customers': 4,
+            'Need Attention': 5,
+            'At Risk': 6,
+            'Cannot Lose Them': 7,
+            'Lost': 8,
+            'Diğer': 9
+        };
+        const priorityA = segmentPriority[a.segment] || 9;
+        const priorityB = segmentPriority[b.segment] || 9;
+        if (priorityA !== priorityB) return priorityA - priorityB;
+        
+        // Sonra monetary'ye göre
+        return b.monetary - a.monetary;
+    });
+    
+    let html = `
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; background: rgba(30, 41, 59, 0.6); backdrop-filter: blur(10px); box-shadow: 0 2px 10px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);">
+                <thead style="background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); color: white;">
+                    <tr>
+                        <th style="padding: 15px; text-align: left;">Müşteri</th>
+                        <th style="padding: 15px; text-align: center;">RFM Skoru</th>
+                        <th style="padding: 15px; text-align: center;">Segment</th>
+                        <th style="padding: 15px; text-align: right;">Recency (Gün)</th>
+                        <th style="padding: 15px; text-align: right;">Frequency</th>
+                        <th style="padding: 15px; text-align: right;">Monetary</th>
+                        <th style="padding: 15px; text-align: center;">Aksiyon</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    sortedCustomers.slice(0, 100).forEach((customer, index) => {
+        const rowColor = index % 2 === 0 ? 'rgba(255,255,255,0.05)' : 'transparent';
+        const escapedName = escapeHtml(customer.name);
+        const escapedCity = escapeHtml(customer.city);
+        const escapedNameJs = escapeJsString(customer.name);
+        const escapedSegment = escapeHtml(customer.segment);
+        
+        html += `
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); background: ${rowColor}; color: #e2e8f0;">
+                <td style="padding: 12px;">
+                    <strong>${escapedName}</strong><br>
+                    <small style="color: #94a3b8;">${escapedCity}</small>
+                </td>
+                <td style="padding: 12px; text-align: center;">
+                    <span style="display: inline-block; padding: 4px 8px; background: rgba(16, 185, 129, 0.2); border-radius: 4px; font-weight: bold; font-family: monospace;">
+                        ${customer.rfmScore}
+                    </span>
+                </td>
+                <td style="padding: 12px; text-align: center;">
+                    <span style="display: inline-block; padding: 6px 12px; background: ${customer.segmentColor}20; color: ${customer.segmentColor}; border-radius: 6px; font-weight: 600; border: 1px solid ${customer.segmentColor}40;">
+                        ${escapedSegment}
+                    </span>
+                </td>
+                <td style="padding: 12px; text-align: right;">
+                    <span style="color: ${customer.recencyScore >= 4 ? '#10B981' : customer.recencyScore >= 3 ? '#F59E0B' : '#EF4444'}; font-weight: bold;">
+                        ${customer.recencyDays} gün
+                    </span>
+                    <br><small style="color: #94a3b8;">Skor: ${customer.recencyScore}</small>
+                </td>
+                <td style="padding: 12px; text-align: right;">
+                    <span style="color: ${customer.frequencyScore >= 4 ? '#10B981' : customer.frequencyScore >= 3 ? '#F59E0B' : '#EF4444'}; font-weight: bold;">
+                        ${customer.frequency} fatura
+                    </span>
+                    <br><small style="color: #94a3b8;">Skor: ${customer.frequencyScore}</small>
+                </td>
+                <td style="padding: 12px; text-align: right;">
+                    <span style="color: ${customer.monetaryScore >= 4 ? '#10B981' : customer.monetaryScore >= 3 ? '#F59E0B' : '#EF4444'}; font-weight: bold;">
+                        $${customer.monetary.toLocaleString('tr-TR', {minimumFractionDigits: 2})}
+                    </span>
+                    <br><small style="color: #94a3b8;">Skor: ${customer.monetaryScore}</small>
+                </td>
+                <td style="padding: 12px; text-align: center;">
+                    <button onclick="document.getElementById('customerSearchInputMain').value='${escapedNameJs}'; searchCustomerProfileMain();" 
+                            style="padding: 6px 12px; background: rgba(16, 185, 129, 0.2); color: #10B981; border: 1px solid #10B981; border-radius: 6px; cursor: pointer; font-size: 0.85em;">
+                        Detay
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    
+    html += `
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    container.innerHTML = html;
+}
+
+/**
+ * RFM segment dağılım grafiğini render et
+ */
+function renderRFMSegmentChart(customers) {
+    const ctx = document.getElementById('rfmSegmentChart');
+    if (!ctx) return;
+    
+    // Segment bazında grupla
+    const segmentData = {};
+    customers.forEach(c => {
+        if (!segmentData[c.segment]) {
+            segmentData[c.segment] = {
+                count: 0,
+                totalSales: 0,
+                color: c.segmentColor
+            };
+        }
+        segmentData[c.segment].count++;
+        segmentData[c.segment].totalSales += c.monetary;
+    });
+    
+    const segments = Object.entries(segmentData)
+        .sort((a, b) => b[1].totalSales - a[1].totalSales);
+    
+    // Chart.js instance'ı varsa destroy et
+    if (window.rfmSegmentChartInstance) {
+        window.rfmSegmentChartInstance.destroy();
+    }
+    
+    window.rfmSegmentChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: segments.map(s => s[0]),
+            datasets: [{
+                label: 'Müşteri Sayısı',
+                data: segments.map(s => s[1].count),
+                backgroundColor: segments.map(s => s[1].color + '80'),
+                borderColor: segments.map(s => s[1].color),
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        afterLabel: function(context) {
+                            const segment = segments[context.dataIndex];
+                            return `Toplam Satış: $${segment[1].totalSales.toLocaleString('tr-TR', {minimumFractionDigits: 2})}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
         }
     });
 }

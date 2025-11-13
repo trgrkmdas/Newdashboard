@@ -13,6 +13,259 @@ import { normalizeStoreName } from '../../core/utils.js';
 import { normalizeDistrictName } from '../../core/district-normalizer.js';
 import { shouldHideItem, isDiscountProduct, getStoreWorkingHours } from '../../data/data-processor.js';
 
+// ==================== PERFORMANCE OPTIMIZATION ====================
+/**
+ * SalespersonIndex - Satış temsilcisi verilerini index'leme sistemi
+ * Proje genelindeki performans sistemleriyle uyumlu (MemoCache, IndexedDB pattern)
+ */
+class SalespersonIndex {
+    constructor() {
+        // Map: salesperson name -> data array
+        this.index = new Map();
+        // Map: normalized name (lowercase) -> original name
+        this.nameMap = new Map();
+        // Cache: filtreleme sonuçları için
+        this.filterCache = new Map();
+        // Index durumu
+        this.isIndexed = false;
+        this.lastDataHash = null;
+    }
+    
+    /**
+     * Veriyi index'le (tüm satış temsilcilerini grupla)
+     * @param {Array} allData - Tüm veri
+     */
+    buildIndex(allData) {
+        if (!allData || allData.length === 0) {
+            this.index.clear();
+            this.nameMap.clear();
+            this.isIndexed = false;
+            return;
+        }
+        
+        // Veri hash'i hesapla (değişiklik kontrolü için)
+        const dataHash = this._calculateHash(allData);
+        if (this.lastDataHash === dataHash && this.isIndexed) {
+            safeConsole.log('📦 SalespersonIndex: Veri değişmemiş, index yeniden oluşturulmadı');
+            return;
+        }
+        
+        const startTime = performance.now();
+        this.index.clear();
+        this.nameMap.clear();
+        this.filterCache.clear();
+        
+        // Satış temsilcilerini grupla
+        allData.forEach(item => {
+            const name = item.sales_person || '';
+            if (!name || name.trim() === '') return;
+            
+            const normalizedName = name.toLowerCase().trim();
+            
+            // Index'e ekle
+            if (!this.index.has(normalizedName)) {
+                this.index.set(normalizedName, []);
+                this.nameMap.set(normalizedName, name); // Orijinal ismi sakla
+            }
+            this.index.get(normalizedName).push(item);
+        });
+        
+        this.isIndexed = true;
+        this.lastDataHash = dataHash;
+        
+        const duration = performance.now() - startTime;
+        safeConsole.log(`✅ SalespersonIndex: ${this.index.size} satış temsilcisi index'lendi (${duration.toFixed(2)}ms)`);
+    }
+    
+    /**
+     * Satış temsilcisi verilerini al (index'ten)
+     * @param {string} name - Satış temsilcisi adı (case-insensitive)
+     * @returns {Array} - Satış temsilcisi verileri
+     */
+    getSalespersonData(name) {
+        if (!name || !this.isIndexed) return [];
+        
+        const normalizedName = name.toLowerCase().trim();
+        return this.index.get(normalizedName) || [];
+    }
+    
+    /**
+     * İsim araması (fuzzy search - includes)
+     * @param {string} query - Arama sorgusu
+     * @returns {Array} - Eşleşen satış temsilcileri [{name, sales, count}, ...]
+     */
+    searchSalespersons(query) {
+        if (!query || query.length < 2 || !this.isIndexed) return [];
+        
+        const normalizedQuery = query.toLowerCase().trim();
+        const results = [];
+        
+        // Index'te ara
+        for (const [normalizedName, data] of this.index.entries()) {
+            if (normalizedName.includes(normalizedQuery)) {
+                const originalName = this.nameMap.get(normalizedName);
+                const sales = data.reduce((sum, item) => sum + parseFloat(item.usd_amount || 0), 0);
+                const count = data.length;
+                
+                results.push({
+                    name: originalName,
+                    sales: sales,
+                    count: count
+                });
+            }
+        }
+        
+        // Satışa göre sırala
+        results.sort((a, b) => b.sales - a.sales);
+        
+        return results;
+    }
+    
+    /**
+     * Filtrelenmiş veriyi al (cache ile)
+     * @param {Object} filters - Filtreler {year, month, day}
+     * @returns {Array} - Filtrelenmiş veri
+     */
+    getFilteredData(filters = {}) {
+        // Cache key oluştur
+        const cacheKey = this._getFilterCacheKey(filters);
+        
+        // Cache'den kontrol et
+        if (this.filterCache.has(cacheKey)) {
+            const cached = this.filterCache.get(cacheKey);
+            if (Date.now() - cached.timestamp < 300000) { // 5 dakika (MemoCache ile uyumlu)
+                safeConsole.log('📦 SalespersonIndex: Filtreleme cache hit');
+                return cached.data;
+            }
+        }
+        
+        // Cache'de yoksa, filtrele
+        const allData = this._getAllIndexedData();
+        let filtered = allData;
+        
+        if (filters.year && filters.year.length > 0) {
+            filtered = filtered.filter(item => {
+                const itemYear = item.date ? item.date.split('-')[0] : '';
+                return filters.year.includes(itemYear);
+            });
+        }
+        
+        if (filters.month && filters.month.length > 0) {
+            filtered = filtered.filter(item => {
+                const itemMonth = item.date ? item.date.split('-')[1] : '';
+                return filters.month.includes(itemMonth);
+            });
+        }
+        
+        if (filters.day && filters.day.length > 0) {
+            filtered = filtered.filter(item => {
+                const itemDay = item.date ? item.date.split('-')[2] : '';
+                return filters.day.includes(itemDay);
+            });
+        }
+        
+        // Cache'e kaydet
+        this.filterCache.set(cacheKey, {
+            data: filtered,
+            timestamp: Date.now()
+        });
+        
+        // Cache boyutu kontrolü (max 50)
+        if (this.filterCache.size > 50) {
+            const firstKey = this.filterCache.keys().next().value;
+            this.filterCache.delete(firstKey);
+        }
+        
+        return filtered;
+    }
+    
+    /**
+     * Tüm index'lenmiş veriyi al
+     * @returns {Array} - Tüm veri
+     */
+    _getAllIndexedData() {
+        const allData = [];
+        for (const data of this.index.values()) {
+            for (const item of data) {
+                allData.push(item);
+            }
+        }
+        return allData;
+    }
+    
+    /**
+     * Filtre cache key oluştur
+     */
+    _getFilterCacheKey(filters) {
+        return JSON.stringify({
+            year: (filters.year || []).sort().join(','),
+            month: (filters.month || []).sort().join(','),
+            day: (filters.day || []).sort().join(',')
+        });
+    }
+    
+    /**
+     * Veri hash'i hesapla (değişiklik kontrolü için)
+     */
+    _calculateHash(data) {
+        // Basit hash: veri uzunluğu + ilk ve son item'ın hash'i
+        if (!data || data.length === 0) return 'empty';
+        const first = data[0];
+        const last = data[data.length - 1];
+        return `${data.length}-${first?.date || ''}-${last?.date || ''}`;
+    }
+    
+    /**
+     * Index'i temizle
+     */
+    clear() {
+        this.index.clear();
+        this.nameMap.clear();
+        this.filterCache.clear();
+        this.isIndexed = false;
+        this.lastDataHash = null;
+    }
+    
+    /**
+     * Index istatistikleri
+     */
+    getStats() {
+        return {
+            salespersonCount: this.index.size,
+            isIndexed: this.isIndexed,
+            cacheSize: this.filterCache.size
+        };
+    }
+}
+
+// Singleton instance
+let salespersonIndexInstance = null;
+
+/**
+ * SalespersonIndex instance'ını al
+ */
+function getSalespersonIndex() {
+    if (!salespersonIndexInstance) {
+        salespersonIndexInstance = new SalespersonIndex();
+    }
+    return salespersonIndexInstance;
+}
+
+/**
+ * Debounce helper (proje genelindeki pattern ile uyumlu)
+ */
+function debounce(func, wait = 300) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
 // Chart instance'ları
 let storeBrandChartInstance = null;
 let storeCategoryChartInstance = null;
@@ -36,6 +289,17 @@ function getAllData() {
     return window.allData || [];
 }
 
+/**
+ * Index'i otomatik olarak build et (veri değiştiğinde)
+ */
+function ensureSalespersonIndex() {
+    const allData = getAllData();
+    if (allData && allData.length > 0) {
+        const index = getSalespersonIndex();
+        index.buildIndex(allData);
+    }
+}
+
 function getInventoryData() {
     return window.inventoryData || null;
 }
@@ -49,12 +313,14 @@ function getFilteredData() {
 }
 
 function performStoreAIAnalysis(data, profile, insights) {
+    // DÜZELTME: Güvenli sayı dönüşümü ve NaN kontrolü
     // Marka analizi
     const brandData = {};
     data.forEach(item => {
         const brand = item.brand || 'Bilinmiyor';
         if (!brandData[brand]) brandData[brand] = 0;
-        brandData[brand] += parseFloat(item.usd_amount || 0);
+        const amount = parseFloat(item.usd_amount || 0);
+        brandData[brand] += (isNaN(amount) ? 0 : amount);
     });
     const topBrands = Object.entries(brandData).sort((a, b) => b[1] - a[1]).slice(0, 3);
     
@@ -66,7 +332,8 @@ function performStoreAIAnalysis(data, profile, insights) {
             return;
         }
         if (!categoryData[cat]) categoryData[cat] = 0;
-        categoryData[cat] += parseFloat(item.usd_amount || 0);
+        const amount = parseFloat(item.usd_amount || 0);
+        categoryData[cat] += (isNaN(amount) ? 0 : amount);
     });
     const topCategories = Object.entries(categoryData).sort((a, b) => b[1] - a[1]).slice(0, 3);
     
@@ -78,7 +345,8 @@ function performStoreAIAnalysis(data, profile, insights) {
         const date = new Date(item.date);
         const month = date.getMonth();
         if (!monthData[month]) monthData[month] = 0;
-        monthData[month] += parseFloat(item.usd_amount || 0);
+        const amount = parseFloat(item.usd_amount || 0);
+        monthData[month] += (isNaN(amount) ? 0 : amount);
     });
     const monthEntries = Object.entries(monthData).map(([m, v]) => ({month: parseInt(m), name: monthNames[m], value: v}));
     const bestMonth = monthEntries.sort((a, b) => b.value - a.value)[0];
@@ -93,7 +361,8 @@ function performStoreAIAnalysis(data, profile, insights) {
             // Python: 0=Pazartesi, 1=Salı, ..., 6=Pazar
             const dayIndex = day; // Direkt kullan, mapping yok
             if (!dayData[dayIndex]) dayData[dayIndex] = 0;
-            dayData[dayIndex] += parseFloat(item.usd_amount || 0);
+            const amount = parseFloat(item.usd_amount || 0);
+            dayData[dayIndex] += (isNaN(amount) ? 0 : amount);
         }
     });
     const dayEntries = Object.entries(dayData).map(([d, v]) => ({day: parseInt(d), name: dayNames[d], value: v}));
@@ -1982,17 +2251,18 @@ function renderSalespersonComparisonCharts(salespersonsData) {
 }
 
 /**
- * Satış temsilcisi önerilerini göster
+ * Satış temsilcisi önerilerini göster (OPTIMIZED - Index kullanıyor)
  */
-export function showSalespersonSuggestions(query) {
+function _showSalespersonSuggestionsInternal(query) {
     safeConsole.log('🔍 [DEBUG] showSalespersonSuggestions çağrıldı:', { query, queryType: typeof query });
     if (!query || typeof query !== 'string') {
         query = '';
         safeConsole.log('🔍 [DEBUG] Query boş veya string değil, temizlendi');
     }
     
-    const allData = getAllData();
-    safeConsole.log('🔍 [DEBUG] getAllData() sonucu:', { dataLength: allData?.length || 0 });
+    // Index'i build et (eğer yapılmadıysa)
+    ensureSalespersonIndex();
+    const index = getSalespersonIndex();
     
     const suggestionsDiv = document.getElementById('salespersonSuggestions');
     if (!suggestionsDiv) {
@@ -2013,37 +2283,20 @@ export function showSalespersonSuggestions(query) {
         return;
     }
     
-    if (!allData || allData.length === 0) {
-        safeConsole.warn('⚠️ [DEBUG] Satış temsilcisi önerileri için veri bulunamadı');
+    if (!index.isIndexed) {
+        safeConsole.warn('⚠️ [DEBUG] Index henüz oluşturulmamış');
         suggestionsDiv.style.display = 'none';
         return;
     }
     
-    safeConsole.log('🔍 [DEBUG] Satış temsilcisi önerileri aranıyor:', query, `(${allData.length} kayıt)`);
+    safeConsole.log('🔍 [DEBUG] Satış temsilcisi önerileri aranıyor (Index kullanılıyor):', query);
     
-    // Benzersiz satış temsilcilerini bul
-    const salespersonMap = {};
-    allData.forEach(item => {
-        const name = item.sales_person || '';
-        if (name && name.toLowerCase().includes(query)) {
-            if (!salespersonMap[name]) {
-                salespersonMap[name] = {
-                    name: name,
-                    sales: 0,
-                    count: 0
-                };
-            }
-            salespersonMap[name].sales += parseFloat(item.usd_amount || 0);
-            salespersonMap[name].count += 1;
-        }
-    });
+    // PERFORMANCE: Index kullanarak arama yap (çok daha hızlı)
+    const startTime = performance.now();
+    const salespersons = index.searchSalespersons(query).slice(0, 10); // Top 10
+    const duration = performance.now() - startTime;
     
-    safeConsole.log('🔍 [DEBUG] Bulunan satış temsilcileri:', Object.keys(salespersonMap).length);
-    
-    // Satışa göre sırala, ilk 10
-    const salespersons = Object.values(salespersonMap)
-        .sort((a, b) => b.sales - a.sales)
-        .slice(0, 10);
+    safeConsole.log(`🔍 [DEBUG] Index araması tamamlandı: ${salespersons.length} sonuç (${duration.toFixed(2)}ms)`);
     
     safeConsole.log('🔍 [DEBUG] Sıralanmış öneriler (Top 10):', salespersons.map(s => s.name));
     
@@ -2096,6 +2349,9 @@ export function showSalespersonSuggestions(query) {
         }
     }
 }
+
+// PERFORMANCE: Debounced version (autocomplete için)
+export const showSalespersonSuggestions = debounce(_showSalespersonSuggestionsInternal, 300);
 
 /**
  * Satış temsilcisi klavye event handler
@@ -2180,36 +2436,80 @@ export function searchSalespersonProfile() {
     const dayFilter = getMultiSelectValues('filterSalespersonDaySelect');
     safeConsole.log('🔍 [DEBUG] Aktif filtreler:', { year: yearFilter, month: monthFilter, day: dayFilter });
     
-    // Veriyi filtrele
-    safeConsole.log('🔍 [DEBUG] Veri filtreleniyor...');
-    let filteredData = allData.filter(item => {
-        // Satış temsilcisi eşleşmesi
-        const salesPerson = (item.sales_person || '').toLowerCase();
-        const matches = searchTerms.some(term => salesPerson.includes(term));
-        if (!matches) return false;
-        
-        // Yıl filtresi
-        if (yearFilter.length > 0) {
-            const itemYear = item.date ? item.date.split('-')[0] : '';
-            if (!yearFilter.includes(itemYear)) return false;
-        }
-        
-        // Ay filtresi
-        if (monthFilter.length > 0) {
-            const itemMonth = item.date ? item.date.split('-')[1] : '';
-            if (!monthFilter.includes(itemMonth)) return false;
-        }
-        
-        // Gün filtresi
-        if (dayFilter.length > 0) {
-            const itemDay = item.date ? item.date.split('-')[2] : '';
-            if (!dayFilter.includes(itemDay)) return false;
-        }
-        
-        return true;
-    });
+    // PERFORMANCE: Index kullanarak veriyi filtrele
+    ensureSalespersonIndex();
+    const index = getSalespersonIndex();
     
-    safeConsole.log('🔍 [DEBUG] Filtrelenmiş veri:', { count: filteredData.length });
+    safeConsole.log('🔍 [DEBUG] Veri filtreleniyor (Index kullanılıyor)...');
+    const startTime = performance.now();
+    
+    // Önce satış temsilcisi verilerini index'ten al
+    let filteredData = [];
+    for (const term of searchTerms) {
+        const salespersonData = index.getSalespersonData(term);
+        if (salespersonData.length > 0) {
+            // Fuzzy match: eğer tam eşleşme yoksa, includes ile ara
+            if (salespersonData.length === 0) {
+                // Index'te tam eşleşme yoksa, tüm index'te ara
+                const allIndexedData = index._getAllIndexedData();
+                const matched = allIndexedData.filter(item => {
+                    const salesPerson = (item.sales_person || '').toLowerCase();
+                    return salesPerson.includes(term);
+                });
+                filteredData.push(...matched);
+            } else {
+                filteredData.push(...salespersonData);
+            }
+        } else {
+            // Index'te tam eşleşme yoksa, tüm index'te ara
+            const allIndexedData = index._getAllIndexedData();
+            const matched = allIndexedData.filter(item => {
+                const salesPerson = (item.sales_person || '').toLowerCase();
+                return salesPerson.includes(term);
+            });
+            filteredData.push(...matched);
+        }
+    }
+    
+    // Benzersiz hale getir (aynı item birden fazla kez eklenmiş olabilir)
+    const uniqueData = [];
+    const seen = new Set();
+    for (const item of filteredData) {
+        const key = `${item.date}-${item.product}-${item.partner}`;
+        if (!seen.has(key)) {
+            seen.add(key);
+            uniqueData.push(item);
+        }
+    }
+    filteredData = uniqueData;
+    
+    // Tarih filtrelerini uygula
+    if (yearFilter.length > 0 || monthFilter.length > 0 || dayFilter.length > 0) {
+        filteredData = filteredData.filter(item => {
+            // Yıl filtresi
+            if (yearFilter.length > 0) {
+                const itemYear = item.date ? item.date.split('-')[0] : '';
+                if (!yearFilter.includes(itemYear)) return false;
+            }
+            
+            // Ay filtresi
+            if (monthFilter.length > 0) {
+                const itemMonth = item.date ? item.date.split('-')[1] : '';
+                if (!monthFilter.includes(itemMonth)) return false;
+            }
+            
+            // Gün filtresi
+            if (dayFilter.length > 0) {
+                const itemDay = item.date ? item.date.split('-')[2] : '';
+                if (!dayFilter.includes(itemDay)) return false;
+            }
+            
+            return true;
+        });
+    }
+    
+    const duration = performance.now() - startTime;
+    safeConsole.log(`🔍 [DEBUG] Filtrelenmiş veri (Index kullanıldı): ${filteredData.length} kayıt (${duration.toFixed(2)}ms)`);
     
     if (filteredData.length === 0) {
         safeConsole.warn('⚠️ [DEBUG] Filtrelenmiş veri bulunamadı');
@@ -2269,14 +2569,45 @@ export function searchSalespersonProfile() {
         safeConsole.log('🔍 [DEBUG] Satış temsilcisi verisi:', { name: salespersonName, dataCount: salespersonData.length });
         
         // İstatistikleri hesapla
-        const totalSales = salespersonData.reduce((sum, item) => sum + parseFloat(item.usd_amount || 0), 0);
-        const totalQty = salespersonData.reduce((sum, item) => sum + parseFloat(item.quantity || 0), 0);
-        const uniqueDates = new Set(salespersonData.map(item => item.date));
-        const invoiceCount = uniqueDates.size;
-        const avgTransaction = totalSales / Math.max(invoiceCount, 1);
-        const avgBasket = totalSales / Math.max(invoiceCount, 1);
-        const uniqueCustomers = new Set(salespersonData.map(item => item.partner).filter(Boolean)).size;
-        const uniqueProducts = new Set(salespersonData.map(item => item.product).filter(Boolean)).size;
+        // DÜZELTME: shouldHideItem kontrolü eklenmeli (Dashboard ile tutarlılık için)
+        // İadeler ve indirim ürünleri totalSales'e dahil edilmemeli
+        const filteredSalespersonData = salespersonData.filter(item => !shouldHideItem(item));
+        
+        const totalSales = filteredSalespersonData.reduce((sum, item) => sum + parseFloat(item.usd_amount || 0), 0);
+        const totalQty = filteredSalespersonData.reduce((sum, item) => sum + parseFloat(item.quantity || 0), 0);
+        
+        // Benzersiz tarih sayısı (sadece filtrelenmiş veriden)
+        const uniqueDates = new Set(filteredSalespersonData.map(item => item.date));
+        const uniqueDatesCount = uniqueDates.size;
+        
+        // Günlük Ort. Satış = Toplam Satış / Benzersiz Tarih Sayısı (Dashboard ile tutarlı)
+        const avgTransaction = totalSales / Math.max(uniqueDatesCount, 1);
+        
+            // Sepet Ortalaması = Sadece Satış Faturalarının Toplamı / Satış Fatura Sayısı (İadeler Hariç)
+            // DÜZELTME: Dashboard ve summary-cards ile aynı mantık
+            // Not: filteredSalespersonData zaten shouldHideItem ile filtrelenmiş, ama yine de kontrol ediyoruz
+            const salesInvoices = filteredSalespersonData.filter(item => {
+            const amt = parseFloat(item.usd_amount || 0);
+            // Sadece satış faturaları (iade değil) ve pozitif tutarlı
+            return amt > 0 && item.move_type !== 'out_refund' && (item.move_type === 'out_invoice' || !item.move_type);
+        });
+        
+        // Invoice key'ler sadece move_name veya move_id kullanmalı (product YOK)
+        // Fallback'te product kullanmak yanlış - aynı faturadaki farklı ürünler farklı key oluşturur
+        const invoiceKeys = salesInvoices
+            .map(item => item.move_name || item.move_id || `${item.date || ''}-${item.partner || ''}-${item.store || ''}`)
+            .filter(Boolean);
+        const uniqueInvoices = new Set(invoiceKeys).size;
+        
+        // Sadece satış faturalarının toplamını hesapla
+        const salesInvoicesTotal = salesInvoices.reduce((sum, item) => sum + parseFloat(item.usd_amount || 0), 0);
+        const avgBasket = uniqueInvoices > 0 ? salesInvoicesTotal / uniqueInvoices : 0;
+        
+        // Fatura sayısı (benzersiz tarih sayısı değil, gerçek fatura sayısı)
+        const invoiceCount = uniqueInvoices;
+        
+        const uniqueCustomers = new Set(filteredSalespersonData.map(item => item.partner).filter(Boolean)).size;
+        const uniqueProducts = new Set(filteredSalespersonData.map(item => item.product).filter(Boolean)).size;
         
         safeConsole.log('🔍 [DEBUG] Hesaplanan istatistikler:', {
             totalSales, totalQty, invoiceCount, avgTransaction, avgBasket, uniqueCustomers, uniqueProducts
@@ -2346,14 +2677,41 @@ export function searchSalespersonProfile() {
         // Çoklu karşılaştırma
         const comparisonData = selectedSalespersons.map(name => {
             const data = filteredData.filter(item => item.sales_person === name);
-            const totalSales = data.reduce((sum, item) => sum + parseFloat(item.usd_amount || 0), 0);
-            const totalQty = data.reduce((sum, item) => sum + parseFloat(item.quantity || 0), 0);
-            const uniqueDates = new Set(data.map(item => item.date));
-            const invoiceCount = uniqueDates.size;
-            const avgTransaction = totalSales / Math.max(invoiceCount, 1);
-            const avgBasket = totalSales / Math.max(invoiceCount, 1);
-            const uniqueCustomers = new Set(data.map(item => item.partner).filter(Boolean)).size;
-            const uniqueProducts = new Set(data.map(item => item.product).filter(Boolean)).size;
+            
+            // DÜZELTME: shouldHideItem kontrolü eklenmeli (Dashboard ile tutarlılık için)
+            const filteredDataForPerson = data.filter(item => !shouldHideItem(item));
+            
+            const totalSales = filteredDataForPerson.reduce((sum, item) => sum + parseFloat(item.usd_amount || 0), 0);
+            const totalQty = filteredDataForPerson.reduce((sum, item) => sum + parseFloat(item.quantity || 0), 0);
+            const uniqueDates = new Set(filteredDataForPerson.map(item => item.date));
+            const uniqueDatesCount = uniqueDates.size;
+            
+            // Günlük Ort. Satış = Toplam Satış / Benzersiz Tarih Sayısı
+            const avgTransaction = totalSales / Math.max(uniqueDatesCount, 1);
+            
+            // Sepet Ortalaması = Sadece Satış Faturalarının Toplamı / Satış Fatura Sayısı (İadeler Hariç)
+            // DÜZELTME: Dashboard ve summary-cards ile aynı mantık
+            // Not: filteredDataForPerson zaten shouldHideItem ile filtrelenmiş, ama yine de kontrol ediyoruz
+            const salesInvoices = filteredDataForPerson.filter(item => {
+                const amt = parseFloat(item.usd_amount || 0);
+                return amt > 0 && item.move_type !== 'out_refund' && (item.move_type === 'out_invoice' || !item.move_type);
+            });
+            
+            // Invoice key'ler sadece move_name veya move_id kullanmalı (product YOK)
+            const invoiceKeys = salesInvoices
+                .map(item => item.move_name || item.move_id || `${item.date || ''}-${item.partner || ''}-${item.store || ''}`)
+                .filter(Boolean);
+            const uniqueInvoices = new Set(invoiceKeys).size;
+            
+            // Sadece satış faturalarının toplamını hesapla
+            const salesInvoicesTotal = salesInvoices.reduce((sum, item) => sum + parseFloat(item.usd_amount || 0), 0);
+            const avgBasket = uniqueInvoices > 0 ? salesInvoicesTotal / uniqueInvoices : 0;
+            
+            // Fatura sayısı (benzersiz tarih sayısı değil, gerçek fatura sayısı)
+            const invoiceCount = uniqueInvoices;
+            
+            const uniqueCustomers = new Set(filteredDataForPerson.map(item => item.partner).filter(Boolean)).size;
+            const uniqueProducts = new Set(filteredDataForPerson.map(item => item.product).filter(Boolean)).size;
             
             return {
                 name,
@@ -2426,26 +2784,34 @@ function performSalespersonAIAnalysis(data, profile) {
 }
 
 /**
- * Satış temsilcisi listesi tablosu
+ * Satış temsilcisi listesi tablosu (OPTIMIZED - Index kullanıyor)
  */
 export function renderSalespersonListTable() {
-    const allData = getAllData();
-    if (!allData || allData.length === 0) return;
+    // PERFORMANCE: Index kullan
+    ensureSalespersonIndex();
+    const index = getSalespersonIndex();
+    
+    if (!index.isIndexed) {
+        safeConsole.warn('⚠️ Index henüz oluşturulmamış, renderSalespersonListTable atlanıyor');
+        return;
+    }
     
     // Yıl filtresi
     const yearFilter = getMultiSelectValues('filterSalespersonYearSelect');
     
-    // Veriyi filtrele
-    let filteredData = allData;
-    if (yearFilter.length > 0) {
-        filteredData = allData.filter(item => {
-            const itemYear = item.date ? item.date.split('-')[0] : '';
-            return yearFilter.includes(itemYear);
-        });
-    }
+    // PERFORMANCE: Index'ten filtreli veriyi al (cache ile)
+    const startTime = performance.now();
+    const filteredData = index.getFilteredData({
+        year: yearFilter,
+        month: [],
+        day: []
+    });
+    const filterDuration = performance.now() - startTime;
+    safeConsole.log(`📦 Filtreleme (Index): ${filteredData.length} kayıt (${filterDuration.toFixed(2)}ms)`);
     
     // Satış temsilcisi bazında grupla
     const salespersonData = {};
+    const processStartTime = performance.now();
     filteredData.forEach(item => {
         // Boşluk kontrolü ve trim (bir kez yapılıyor)
         let name = (item.sales_person || 'Bilinmiyor').trim();
@@ -2477,6 +2843,9 @@ export function renderSalespersonListTable() {
         salespersonData[name].qty += (isNaN(quantity) ? 0 : quantity);
         salespersonData[name].count += 1;
     });
+    
+    const processDuration = performance.now() - processStartTime;
+    safeConsole.log(`📦 Gruplama: ${Object.keys(salespersonData).length} satış temsilcisi (${processDuration.toFixed(2)}ms)`);
     
     // Satışa göre sırala, eşitlik durumunda miktara göre, Top 50
     const sorted = Object.values(salespersonData)

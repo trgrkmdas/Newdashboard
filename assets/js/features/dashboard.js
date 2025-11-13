@@ -264,6 +264,14 @@ export async function loadAllYearsData(metadata) {
             window.populateStoreDayFilter();
         }
         
+        // Günlük satış filtrelerini doldur (veri yüklendikten sonra)
+        if (typeof window.populateDailySalesStoreFilter === 'function') {
+            window.populateDailySalesStoreFilter();
+        }
+        if (typeof window.populateDailySalesDateFilters === 'function') {
+            window.populateDailySalesDateFilters();
+        }
+        
         // Ürün filtrelerini initialize et
         if (typeof window.initializeProductFilters === 'function') {
             window.initializeProductFilters();

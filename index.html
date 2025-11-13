@@ -736,6 +736,30 @@
                     </div>
                 </div>
                 
+                <!-- RFM Analysis Section -->
+                <div id="rfmAnalysisSection" style="margin-top: 40px;">
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 15px; margin-bottom: 25px;">
+                        <h3 style="color: white; margin: 0 0 10px 0; font-size: 1.5em;">📊 RFM Analizi (Recency, Frequency, Monetary)</h3>
+                        <p style="color: white; opacity: 0.9; margin: 0; font-size: 0.95em;">
+                            Müşterilerinizi Recency (Son alışveriş), Frequency (Alışveriş sıklığı) ve Monetary (Toplam harcama) kriterlerine göre segmentlere ayırın.
+                        </p>
+                    </div>
+                    
+                    <!-- RFM Segment Chart -->
+                    <div class="chart-container" style="margin-bottom: 30px;">
+                        <h3 style="text-align: center; margin-bottom: 20px;">📈 RFM Segment Dağılımı</h3>
+                        <canvas id="rfmSegmentChart" style="max-height: 400px;"></canvas>
+                    </div>
+                    
+                    <!-- RFM Table -->
+                    <div style="margin-top: 30px;">
+                        <h3 style="margin-bottom: 20px;">📋 RFM Analizi Detay Tablosu (Top 100)</h3>
+                        <div id="rfmTableContainer">
+                            <!-- Dinamik olarak doldurulacak -->
+                        </div>
+                    </div>
+                </div>
+                
                 <!-- Customer Charts -->
                 <div id="customerChartsSection" style="margin-top: 30px;">
                     <!-- Aylık Müşteri Trendi - Tam Genişlik -->
@@ -745,9 +769,11 @@
                     </div>
                     
                     <!-- Müşteri Dağılımı (Şehir) - Alt kısımda -->
-                    <div class="chart-container" style="max-width: 600px; margin: 0 auto;">
-                        <h3 style="text-align: center; margin-bottom: 20px;">🌍 Müşteri Dağılımı (Şehir)</h3>
-                        <canvas id="customerCityChart"></canvas>
+                    <div class="chart-container" style="max-width: 800px; margin: 0 auto; background: rgba(30, 41, 59, 0.6); backdrop-filter: blur(10px); border-radius: 15px; padding: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);">
+                        <h3 style="text-align: center; margin-bottom: 25px; color: #e2e8f0; font-size: 1.3em; font-weight: 600; text-shadow: 0 2px 8px rgba(0,0,0,0.2);">🌍 Müşteri Dağılımı (Şehir)</h3>
+                        <div id="customerCityList" class="store-list-progress" style="max-height: 500px; overflow-y: auto;">
+                            <!-- Dinamik olarak doldurulacak -->
+                        </div>
                     </div>
                 </div>
             </div>

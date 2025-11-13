@@ -935,8 +935,16 @@ function performYearlyTargetAnalysis() {
     const yearlyData = {};
     const years = ['2023', '2024', '2025'];
     
+    // DÜZELTME: BRUT hesaplama (Dashboard ile tutarlılık için)
+    // shouldHideItem ile iadeler ve indirim ürünleri filtreleniyor
     years.forEach(year => {
-        yearlyData[year] = allData.filter(item => item.date && item.date.startsWith(year));
+        yearlyData[year] = allData.filter(item => {
+            // shouldHideItem kontrolü (iadeler ve indirim ürünleri filtreleniyor)
+            if (typeof window.shouldHideItem === 'function' && window.shouldHideItem(item)) {
+                return false;
+            }
+            return item.date && item.date.startsWith(year);
+        });
     });
     
     // Mağaza bazlı analiz

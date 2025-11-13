@@ -3,7 +3,6 @@
  */
 
 import { safeConsole } from '../../core/logger.js';
-import { isDiscountProduct } from '../../data/data-processor.js';
 
 // Global değişkenlere erişim için helper fonksiyonlar
 function getAllData() {
@@ -53,6 +52,24 @@ export function populateDailySalesDateFilters() {
         return;
     }
     
+    // Son güncelleme tarihini al
+    const lastUpdateEl = document.getElementById('lastUpdate');
+    let defaultYear = '';
+    let defaultMonth = '';
+    let defaultDay = '';
+    
+    if (lastUpdateEl && lastUpdateEl.textContent && lastUpdateEl.textContent !== '-') {
+        // Format: "2025-11-11 03:44:00" veya "2025-11-11"
+        const lastUpdateText = lastUpdateEl.textContent.trim();
+        const dateMatch = lastUpdateText.match(/(\d{4})-(\d{2})-(\d{2})/);
+        if (dateMatch) {
+            defaultYear = dateMatch[1];
+            defaultMonth = dateMatch[2];
+            defaultDay = dateMatch[3];
+            safeConsole.log('📅 Son güncelleme tarihinden varsayılan tarih alındı:', { defaultYear, defaultMonth, defaultDay });
+        }
+    }
+    
     // Yılları topla
     const years = new Set();
     allData.forEach(item => {
@@ -64,23 +81,50 @@ export function populateDailySalesDateFilters() {
     
     const yearFilter = document.getElementById('dailySalesYearFilter');
     if (yearFilter) {
-        const currentValue = yearFilter.value;
+        // Eğer zaten bir değer seçili değilse, son güncelleme tarihini kullan
+        const currentValue = yearFilter.value || defaultYear;
         yearFilter.innerHTML = '<option value="">Tüm Yıllar</option>';
         Array.from(years).sort().reverse().forEach(year => {
             const selected = year === currentValue ? 'selected' : '';
             yearFilter.innerHTML += `<option value="${year}" ${selected}>${year}</option>`;
         });
+        // Eğer varsayılan değer seçildiyse, value'yu güncelle
+        if (defaultYear && !yearFilter.value) {
+            yearFilter.value = defaultYear;
+        }
+    }
+    
+    const monthFilter = document.getElementById('dailySalesMonthFilter');
+    if (monthFilter) {
+        // Eğer zaten bir değer seçili değilse, son güncelleme tarihini kullan
+        const currentValue = monthFilter.value || defaultMonth;
+        const monthNames = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+        monthFilter.innerHTML = '<option value="">Tüm Aylar</option>';
+        for (let i = 1; i <= 12; i++) {
+            const month = String(i).padStart(2, '0');
+            const selected = month === currentValue ? 'selected' : '';
+            monthFilter.innerHTML += `<option value="${month}" ${selected}>${monthNames[i - 1]}</option>`;
+        }
+        // Eğer varsayılan değer seçildiyse, value'yu güncelle
+        if (defaultMonth && !monthFilter.value) {
+            monthFilter.value = defaultMonth;
+        }
     }
     
     // Günleri doldur (1-31)
     const dayFilter = document.getElementById('dailySalesDayFilter');
     if (dayFilter) {
-        const currentValue = dayFilter.value;
+        // Eğer zaten bir değer seçili değilse, son güncelleme tarihini kullan
+        const currentValue = dayFilter.value || defaultDay;
         dayFilter.innerHTML = '<option value="">Tüm Günler</option>';
         for (let i = 1; i <= 31; i++) {
             const day = String(i).padStart(2, '0');
             const selected = day === currentValue ? 'selected' : '';
             dayFilter.innerHTML += `<option value="${day}" ${selected}>${day}</option>`;
+        }
+        // Eğer varsayılan değer seçildiyse, value'yu güncelle
+        if (defaultDay && !dayFilter.value) {
+            dayFilter.value = defaultDay;
         }
     }
 }
@@ -90,6 +134,12 @@ export function populateDailySalesDateFilters() {
  */
 export function loadDailySales() {
     const allData = getAllData();
+    
+    // Mağaza ve tarih filtrelerini doldur (veri yüklendikten sonra)
+    if (allData && allData.length > 0) {
+        populateDailySalesStoreFilter();
+        populateDailySalesDateFilters();
+    }
     
     if (!allData || allData.length === 0) {
         const container = document.getElementById('dailySalesTableContainer');
@@ -141,24 +191,33 @@ export function loadDailySales() {
         targetDate = dates[dates.length - 1];
     }
     
+    // Eğer hiçbir tarih filtresi yoksa ve targetDate null ise, tüm verileri göster
+    // (targetDate null olabilir çünkü ay veya yıl seçilmiş olabilir)
     if (!targetDate && !selectedYear && !selectedMonth && !selectedDay) {
-        const container = document.getElementById('dailySalesTableContainer');
-        if (container) {
-            container.innerHTML = 
-                '<p style="text-align: center; color: #f5576c; padding: 40px;">⚠️ Tarih bilgisi bulunamadı.</p>';
+        const dates = allData.map(item => item.date).filter(Boolean).sort();
+        if (dates.length === 0) {
+            const container = document.getElementById('dailySalesTableContainer');
+            if (container) {
+                container.innerHTML = 
+                    '<p style="text-align: center; color: #f5576c; padding: 40px;">⚠️ Tarih bilgisi bulunamadı.</p>';
+            }
+            return;
         }
-        return;
+        // En son tarihi kullan
+        targetDate = dates[dates.length - 1];
+        safeConsole.log('📅 Tarih filtresi yok, en son tarih kullanılıyor:', targetDate);
     }
     
     safeConsole.log('📅 Seçilen tarih/filtreler:', { targetDate, selectedYear, selectedMonth, selectedDay });
     
     // Satışları filtrele
+    // DÜZELTME: BRUT hesaplama (Dashboard ve diğer modüllerle tutarlılık için)
+    // shouldHideItem ile iadeler ve indirim ürünleri filtreleniyor
     let dailyData = allData.filter(item => {
-        // İadeleri filtrele (görünür yapma - hesaplamalarda düşecek ama tablolarda gösterilmeyecek)
-        if (item.move_type === 'out_refund' || item.is_refund) return false;
-        
-        // İndirim ürünlerini filtrele (görünür yapma - hesaplamalarda kullanılacak ama tablolarda gösterilmeyecek)
-        if (isDiscountProduct(item)) return false;
+        // shouldHideItem kontrolü (iadeler ve indirim ürünleri filtreleniyor)
+        if (typeof window.shouldHideItem === 'function' && window.shouldHideItem(item)) {
+            return false;
+        }
         
         // Tarih filtresi
         if (targetDate) {
@@ -192,6 +251,8 @@ export function loadDailySales() {
             container.innerHTML = 
                 `<p style="text-align: center; color: #6c757d; padding: 40px;">📅 ${dateInfo} için ${selectedStore ? selectedStore + ' mağazası ' : ''}satış verisi bulunamadı.</p>`;
         }
+        safeConsole.warn(`⚠️ ${dateInfo} için satış verisi bulunamadı. Filtreler:`, { selectedStore, selectedYear, selectedMonth, selectedDay, targetDate });
+        safeConsole.warn(`⚠️ Toplam veri sayısı: ${allData.length}, Filtrelenmiş veri sayısı: ${dailyData.length}`);
         return;
     }
     
@@ -246,6 +307,8 @@ export function loadDailySales() {
     // Tarih bilgisini oluştur (gösterim için)
     const displayDate = targetDate || (selectedYear ? `${selectedYear}${selectedMonth ? '-' + selectedMonth : ''}${selectedDay ? '-' + selectedDay : ''}` : 'Tüm Tarihler');
     
+    safeConsole.log('📊 Tablo render ediliyor:', { productListLength: productList.length, displayDate, selectedStore });
+    
     // Tabloyu oluştur
     renderDailySalesTable(productList, displayDate, selectedStore);
 }
@@ -292,37 +355,39 @@ export function renderDailySalesTable(productList, date, selectedStore) {
                 <div style="font-size: 1.8em; font-weight: 800; letter-spacing: 0.5px;">$${totalSales.toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
             </div>
         </div>
-        <table style="width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-            <thead style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-                <tr>
-                    <th style="padding: 12px; text-align: left; border-bottom: 2px solid #ddd;">#</th>
-                    <th style="padding: 12px; text-align: left; border-bottom: 2px solid #ddd; cursor: pointer;" onclick="sortDailySalesTable('product')">Ürün ⇅</th>
-                    <th style="padding: 12px; text-align: left; border-bottom: 2px solid #ddd; cursor: pointer;" onclick="sortDailySalesTable('brand')">Marka ⇅</th>
-                    <th style="padding: 12px; text-align: left; border-bottom: 2px solid #ddd; cursor: pointer;" onclick="sortDailySalesTable('category')">Kategori ⇅</th>
-                    <th style="padding: 12px; text-align: right; border-bottom: 2px solid #ddd; cursor: pointer;" onclick="sortDailySalesTable('sales')">Satış (USD) ▼</th>
-                    <th style="padding: 12px; text-align: right; border-bottom: 2px solid #ddd; cursor: pointer;" onclick="sortDailySalesTable('qty')">Miktar ⇅</th>
-                    <th style="padding: 12px; text-align: right; border-bottom: 2px solid #ddd; cursor: pointer;" onclick="sortDailySalesTable('transaction')">İşlem ⇅</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
+        <div style="background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border-radius: 15px; border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); overflow: hidden;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <tr>
+                        <th style="padding: 15px; text-align: left; border-bottom: 2px solid rgba(255, 255, 255, 0.2); font-weight: 600; font-size: 0.95em;">#</th>
+                        <th style="padding: 15px; text-align: left; border-bottom: 2px solid rgba(255, 255, 255, 0.2); font-weight: 600; font-size: 0.95em; cursor: pointer; transition: background 0.2s;" onclick="sortDailySalesTable('product')" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">Ürün ⇅</th>
+                        <th style="padding: 15px; text-align: left; border-bottom: 2px solid rgba(255, 255, 255, 0.2); font-weight: 600; font-size: 0.95em; cursor: pointer; transition: background 0.2s;" onclick="sortDailySalesTable('brand')" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">Marka ⇅</th>
+                        <th style="padding: 15px; text-align: left; border-bottom: 2px solid rgba(255, 255, 255, 0.2); font-weight: 600; font-size: 0.95em; cursor: pointer; transition: background 0.2s;" onclick="sortDailySalesTable('category')" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">Kategori ⇅</th>
+                        <th style="padding: 15px; text-align: right; border-bottom: 2px solid rgba(255, 255, 255, 0.2); font-weight: 600; font-size: 0.95em; cursor: pointer; transition: background 0.2s;" onclick="sortDailySalesTable('sales')" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">Satış (USD) ▼</th>
+                        <th style="padding: 15px; text-align: right; border-bottom: 2px solid rgba(255, 255, 255, 0.2); font-weight: 600; font-size: 0.95em; cursor: pointer; transition: background 0.2s;" onclick="sortDailySalesTable('qty')" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">Miktar ⇅</th>
+                        <th style="padding: 15px; text-align: right; border-bottom: 2px solid rgba(255, 255, 255, 0.2); font-weight: 600; font-size: 0.95em; cursor: pointer; transition: background 0.2s;" onclick="sortDailySalesTable('transaction')" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">İşlem ⇅</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
     
     productList.forEach((item, index) => {
+        const rowBg = index % 2 === 0 ? 'rgba(15, 23, 42, 0.5)' : 'rgba(30, 41, 59, 0.3)';
         html += `
-            <tr style="border-bottom: 1px solid #eee; ${index % 2 === 0 ? 'background: #f8f9fa;' : ''}">
-                <td style="padding: 12px;">${index + 1}</td>
-                <td style="padding: 12px;">
-                    <strong>${item.productCode ? `[${item.productCode}]` : ''} ${item.product}</strong>
+            <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.1); background: ${rowBg}; transition: background 0.2s;" onmouseover="this.style.background='rgba(102, 126, 234, 0.2)'" onmouseout="this.style.background='${rowBg}'">
+                <td style="padding: 15px; color: #e2e8f0; font-size: 0.95em;">${index + 1}</td>
+                <td style="padding: 15px; color: #e2e8f0; font-size: 0.95em;">
+                    <strong style="color: #10B981;">${item.productCode ? `[${item.productCode}]` : ''} ${item.product}</strong>
                 </td>
-                <td style="padding: 12px;">${item.brand}</td>
-                <td style="padding: 12px;">${item.category}</td>
-                <td style="padding: 12px; text-align: right; font-weight: bold; color: #38ef7d;">
+                <td style="padding: 15px; color: #cbd5e1; font-size: 0.95em;">${item.brand}</td>
+                <td style="padding: 15px; color: #cbd5e1; font-size: 0.95em;">${item.category}</td>
+                <td style="padding: 15px; text-align: right; font-weight: bold; color: #38ef7d; font-size: 0.95em;">
                     $${item.sales.toLocaleString('tr-TR', {minimumFractionDigits: 2})}
                 </td>
-                <td style="padding: 12px; text-align: right;">
+                <td style="padding: 15px; text-align: right; color: #e2e8f0; font-size: 0.95em;">
                     ${item.qty.toLocaleString('tr-TR', {minimumFractionDigits: 2})}
                 </td>
-                <td style="padding: 12px; text-align: right;">
+                <td style="padding: 15px; text-align: right; color: #e2e8f0; font-size: 0.95em;">
                     ${item.transactionCount}
                 </td>
             </tr>
@@ -330,8 +395,9 @@ export function renderDailySalesTable(productList, date, selectedStore) {
     });
     
     html += `
-            </tbody>
-        </table>
+                </tbody>
+            </table>
+        </div>
     `;
     
     container.innerHTML = html;

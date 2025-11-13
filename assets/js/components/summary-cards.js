@@ -13,6 +13,13 @@ export function updateSummary() {
         return;
     }
     
+    // DÜZELTME: Veri hazır değilse veya çok az veri varsa bekle
+    // İlk yüklemede filteredData henüz hazır olmayabilir
+    if (window.allData.length === 0 || (window.filteredData.length === 0 && window.allData.length > 0)) {
+        safeConsole.warn('⚠️ Veri henüz hazır değil, özet güncellenemiyor');
+        return;
+    }
+    
     safeConsole.log('updateSummary - Filtrelenmiş veri sayısı:', window.filteredData.length);
     
     // Toplam kayıt sayısını güncelle
@@ -21,12 +28,11 @@ export function updateSummary() {
         totalRecordsEl.textContent = window.allData.length.toLocaleString('tr-TR');
     }
     
-    // ODOO "ALL ZUHAL" filtresi: Tüm faturaları göster (hem satış hem iade)
-    // Odoo arka planda otomatik olarak NET hesaplıyor: Satış - İade
+    // DÜZELTME: BRUT hesaplama (Dashboard ve diğer modüllerle tutarlılık için)
     // İptal (cancel) ve taslak (draft) faturaları HARİÇ TUT
     // applyDiscountLogic zaten devre dışı (Odoo indirimleri zaten düşmüş)
     
-    // Hesaplamalar için: allData'dan al (iade tutarları düşecek, indirim ürünleri düşmeyecek)
+    // Hesaplamalar için: allData'dan al, shouldHideItem ile filtrele (BRUT hesaplama)
     // NOT: filteredData'da iadeler ve indirim ürünleri zaten filtrelenmiş (görünmez)
     const allInvoicesForCalculation = window.allData.filter(item => {
         // state alanı varsa kontrol et
@@ -37,46 +43,56 @@ export function updateSummary() {
         return true;
     });
     
-    // İade faturalarını negatif yap (eğer pozitifse) - Hesaplamalar için
-    // İndirim ürünleri hesaplamalardan düşmemeli (sadece görünmez)
-    const processedData = allInvoicesForCalculation.map(item => {
-        const amount = parseFloat(item.usd_amount || 0);
-        // out_refund (iade) faturaları pozitifse negatif yap (hesaplamalardan düşecek)
-        if (item.move_type === 'out_refund' && amount > 0) {
-            return { ...item, usd_amount: -amount };
+    // BRUT hesaplama: İadeler ve indirim ürünleri filtreleniyor (Dashboard ile tutarlı)
+    // shouldHideItem ile iadeler ve indirim ürünleri çıkarılıyor
+    const processedData = allInvoicesForCalculation.filter(item => {
+        // shouldHideItem kontrolü (iadeler ve indirim ürünleri filtreleniyor)
+        if (typeof window.shouldHideItem === 'function' && window.shouldHideItem(item)) {
+            return false;
         }
-        // İndirim ürünleri hesaplamalardan düşmemeli (sadece görünmez)
-        return item;
+        return true;
     });
     
-    // NET hesapla: Satış - İade (Odoo ile uyumlu)
-    // İadeler zaten negatif, toplamda düşecek
-    // İndirim ürünleri hesaplamalardan düşmemeli (sadece görünmez)
+    // BRUT hesapla: Sadece Satış (İadeler Hariç) - Dashboard ile tutarlı
     const totalUSD = processedData.reduce((sum, item) => {
-        // İndirim ürünlerini hesaplamalardan düşme
-        if (typeof window.isDiscountProduct === 'function' && window.isDiscountProduct(item)) return sum;
         return sum + (parseFloat(item.usd_amount) || 0);
     }, 0);
-    const totalQty = processedData.filter(item => {
-        // İadeleri ve indirim ürünlerini miktardan düşme
-        return item.move_type !== 'out_refund' && !(typeof window.isDiscountProduct === 'function' && window.isDiscountProduct(item));
-    }).reduce((sum, item) => sum + (parseFloat(item.quantity) || 0), 0);
+    // BRUT hesaplama: processedData zaten shouldHideItem ile filtrelenmiş
+    const totalQty = processedData.reduce((sum, item) => sum + (parseFloat(item.quantity) || 0), 0);
     const uniquePartners = new Set(window.filteredData.map(item => item.partner)).size;
     const uniqueProducts = new Set(window.filteredData.map(item => item.product)).size;
     const uniqueStores = new Set(window.filteredData.map(item => item.store)).size;
     const uniqueSalespeople = new Set(window.filteredData.map(item => item.sales_person)).size;
     
-    // Günlük ortalama hesapla (NET bazlı)
+    // Günlük ortalama hesapla (BRUT bazlı - Dashboard ile tutarlı)
     const uniqueDays = new Set(processedData.map(item => item.date)).size;
     const dailyAverage = uniqueDays > 0 ? totalUSD / uniqueDays : 0;
     
     // Sepet ortalaması ve fatura sayısı (sadece satış faturaları için)
-    const salesInvoices = processedData.filter(item => item.move_type === 'out_invoice' || (item.move_type !== 'out_refund' && parseFloat(item.usd_amount || 0) > 0));
+    // DÜZELTME: Sadece satış faturalarının toplamını kullan (iade faturaları hariç)
+    const salesInvoices = processedData.filter(item => {
+        // Sadece satış faturaları (iade değil)
+        if (item.move_type === 'out_refund') return false;
+        // Pozitif tutarlı satışlar
+        const amount = parseFloat(item.usd_amount || 0);
+        return amount > 0 && (item.move_type === 'out_invoice' || !item.move_type);
+    });
+    
+    // DÜZELTME: Invoice key'ler sadece move_name veya move_id kullanmalı
+    // Fallback'te product kullanmak yanlış - aynı faturadaki farklı ürünler farklı key oluşturur
     const invoiceKeys = salesInvoices
-        .map(item => item.move_name || item.move_id || `${item.date || ''}-${item.partner || ''}-${item.store || ''}-${item.product || ''}`)
+        .map(item => {
+            // Önce move_name, sonra move_id, sonra date-partner-store kombinasyonu (product YOK)
+            return item.move_name || item.move_id || `${item.date || ''}-${item.partner || ''}-${item.store || ''}`;
+        })
         .filter(Boolean);
     const uniqueInvoices = new Set(invoiceKeys).size;
-    const basketAverage = uniqueInvoices > 0 ? totalUSD / uniqueInvoices : 0;
+    
+    // DÜZELTME: Pay (totalUSD) yerine sadece satış faturalarının toplamını kullan
+    const salesInvoicesTotal = salesInvoices.reduce((sum, item) => {
+        return sum + parseFloat(item.usd_amount || 0);
+    }, 0);
+    const basketAverage = uniqueInvoices > 0 ? salesInvoicesTotal / uniqueInvoices : 0;
     
     const refundCount = window.filteredData.filter(item => item.move_type === 'out_refund').length;
     const refundTotal = window.filteredData
@@ -98,8 +114,8 @@ export function updateSummary() {
         return sum + parseFloat(item.usd_amount || 0);
     }, 0);
     
-    safeConsole.log('Özet (NET - Odoo ile uyumlu):', {
-        totalUSD_NET: totalUSD,
+    safeConsole.log('Özet (BRUT - Dashboard ile tutarlı):', {
+        totalUSD_BRUT: totalUSD,
         totalUSD_FORMATTED: '$' + totalUSD.toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2}),
         dashboardTotalSales: dashboardTotalSales,
         dashboardTotalSales_FORMATTED: '$' + dashboardTotalSales.toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2}),
@@ -151,12 +167,15 @@ export function updateSummary() {
     const dashTotalInvoices = document.getElementById('dashTotalInvoices');
     
     // Dashboard kartları için seçili yılların verilerini kullan
-    // İndirim ürünlerini düş, iadeleri dahil et (negatif değerler olarak zaten düşecek)
+    // DÜZELTME: BRUT hesaplama (Dashboard ile tutarlılık için)
+    // İadeler ve indirim ürünleri filtreleniyor (shouldHideItem ile)
     const selectedYears = window.selectedYears || new Set();
     const selectedYearsArray = Array.from(selectedYears).map(y => y.toString());
     const dataForDashboard = window.allData.filter(item => {
-        // İndirim ürünlerini düş
-        if (typeof window.isDiscountProduct === 'function' && window.isDiscountProduct(item)) return false;
+        // shouldHideItem kontrolü (iadeler ve indirim ürünleri filtreleniyor)
+        if (typeof window.shouldHideItem === 'function' && window.shouldHideItem(item)) {
+            return false;
+        }
         if (!item.date) return false;
         const year = item.date.split('-')[0];
         // Seçili yıllardan biriyse dahil et
@@ -176,17 +195,13 @@ export function updateSummary() {
         }
     }
     
-    // İadeler negatif değer olarak geliyor, toplamda zaten düşecek
-    // İndirim ürünleri filtrelendi, sadece normal satışlar ve iadeler (negatif) kalıyor
+    // BRUT hesaplama: Sadece Satış (İadeler Hariç) - Dashboard ile tutarlı
     const totalSalesSelected = dataForDashboard.reduce((sum, item) => {
-        return sum + parseFloat(item.usd_amount || 0);
+        return sum + (parseFloat(item.usd_amount) || 0);
     }, 0);
     
-    // Dashboard için seçili yıllar miktar hesaplama (iadeler ve indirim ürünleri düşülmüş)
-    const totalQtySelected = dataForDashboard.filter(item => {
-        // İadeleri ve indirim ürünlerini miktardan düş
-        return item.move_type !== 'out_refund' && !(typeof window.isDiscountProduct === 'function' && window.isDiscountProduct(item));
-    }).reduce((sum, item) => sum + (parseFloat(item.quantity) || 0), 0);
+    // Dashboard için seçili yıllar miktar hesaplama (BRUT - dataForDashboard zaten shouldHideItem ile filtrelenmiş)
+    const totalQtySelected = dataForDashboard.reduce((sum, item) => sum + (parseFloat(item.quantity) || 0), 0);
     
     // Dashboard için seçili yıllar benzersiz sayılar (iadeler ve indirim ürünleri düşülmüş)
     const uniquePartnersSelected = new Set(dataForDashboard.map(item => item.partner).filter(Boolean)).size;
@@ -199,12 +214,28 @@ export function updateSummary() {
     const dailyAverageSelected = uniqueDaysSelected > 0 ? totalSalesSelected / uniqueDaysSelected : 0;
     
     // Dashboard için seçili yıllar sepet ortalaması
-    const salesInvoicesSelected = dataForDashboard.filter(item => item.move_type === 'out_invoice' || (item.move_type !== 'out_refund' && parseFloat(item.usd_amount || 0) > 0));
+    // DÜZELTME: Sadece satış faturalarının toplamını kullan (iade faturaları hariç)
+    const salesInvoicesSelected = dataForDashboard.filter(item => {
+        // Sadece satış faturaları (iade değil)
+        if (item.move_type === 'out_refund') return false;
+        // Pozitif tutarlı satışlar
+        const amount = parseFloat(item.usd_amount || 0);
+        return amount > 0 && (item.move_type === 'out_invoice' || !item.move_type);
+    });
+    
+    // DÜZELTME: Invoice key'ler sadece move_name veya move_id kullanmalı (product YOK)
     const invoiceKeysSelected = salesInvoicesSelected
-        .map(item => item.move_name || item.move_id || `${item.date || ''}-${item.partner || ''}-${item.store || ''}-${item.product || ''}`)
+        .map(item => {
+            return item.move_name || item.move_id || `${item.date || ''}-${item.partner || ''}-${item.store || ''}`;
+        })
         .filter(Boolean);
     const uniqueInvoicesSelected = new Set(invoiceKeysSelected).size;
-    const basketAverageSelected = uniqueInvoicesSelected > 0 ? totalSalesSelected / uniqueInvoicesSelected : 0;
+    
+    // DÜZELTME: Pay (totalSalesSelected) yerine sadece satış faturalarının toplamını kullan
+    const salesInvoicesTotalSelected = salesInvoicesSelected.reduce((sum, item) => {
+        return sum + parseFloat(item.usd_amount || 0);
+    }, 0);
+    const basketAverageSelected = uniqueInvoicesSelected > 0 ? salesInvoicesTotalSelected / uniqueInvoicesSelected : 0;
     
     if (dashTotalSales) dashTotalSales.textContent = '$' + totalSalesSelected.toLocaleString('tr-TR', {minimumFractionDigits: 0, maximumFractionDigits: 0});
     if (dashTotalQty) dashTotalQty.textContent = totalQtySelected.toLocaleString('tr-TR', {minimumFractionDigits: 0, maximumFractionDigits: 0});

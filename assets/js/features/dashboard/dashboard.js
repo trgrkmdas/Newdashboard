@@ -57,10 +57,13 @@ export async function loadDashboard() {
         if (item.date) uniqueDatesSet.add(item.date);
         
         // Invoice keys (sepet ortalaması için)
+        // DÜZELTME: Sadece satış faturaları (iade değil) ve pozitif tutarlı
         const amt = parseFloat(item.usd_amount || 0);
-        if (amt > 0) {
-            const invoiceKey = item.move_name || item.move_id || `${item.date || ''}-${item.partner || ''}-${item.store || ''}-${item.product || ''}`;
-            if (invoiceKey && (item.move_type === 'out_invoice' || !item.move_type)) {
+        if (amt > 0 && item.move_type !== 'out_refund' && (item.move_type === 'out_invoice' || !item.move_type)) {
+            // DÜZELTME: Invoice key'ler sadece move_name veya move_id kullanmalı (product YOK)
+            // Fallback'te product kullanmak yanlış - aynı faturadaki farklı ürünler farklı key oluşturur
+            const invoiceKey = item.move_name || item.move_id || `${item.date || ''}-${item.partner || ''}-${item.store || ''}`;
+            if (invoiceKey) {
                 invoiceKeysSet.add(invoiceKey);
             }
         }
@@ -77,8 +80,18 @@ export async function loadDashboard() {
     // Günlük Ortalama = Toplam USD / Benzersiz Tarih Sayısı (tüm zamanlar)
     const dailyAverage = uniqueDates > 0 ? totalSales / uniqueDates : 0;
     
-    // Sepet Ortalaması = Toplam USD / Satış Fatura Sayısı (İadeler Hariç)
-    const basketAverage = uniqueInvoices > 0 ? totalSales / uniqueInvoices : 0;
+    // Sepet Ortalaması = Sadece Satış Faturalarının Toplamı / Satış Fatura Sayısı (İadeler Hariç)
+    // DÜZELTME: totalSales yerine sadece satış faturalarının toplamını hesapla
+    const salesInvoicesTotal = Array.from(window.allData).reduce((sum, item) => {
+        if (shouldHideItem(item)) return sum;
+        const amt = parseFloat(item.usd_amount || 0);
+        // Sadece satış faturaları (iade değil) ve pozitif tutarlı
+        if (amt > 0 && item.move_type !== 'out_refund' && (item.move_type === 'out_invoice' || !item.move_type)) {
+            return sum + amt;
+        }
+        return sum;
+    }, 0);
+    const basketAverage = uniqueInvoices > 0 ? salesInvoicesTotal / uniqueInvoices : 0;
     
     safeConsole.log('📅 Benzersiz Gün Sayısı (Tüm Zamanlar):', uniqueDates);
     safeConsole.log('💰 Toplam Satış:', totalSales.toLocaleString('tr-TR', {minimumFractionDigits: 2}));

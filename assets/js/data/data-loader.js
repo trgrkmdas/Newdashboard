@@ -904,20 +904,39 @@ export async function loadRemainingYears(skipYear) {
                     }
                     
                     // Günlük Ortalama Hesapla
-                    const uniqueDates = [...new Set(window.allData.map(item => item.date))];
+                    // DÜZELTME: shouldHideItem ile filtrelenmiş veriden unique dates hesapla (Dashboard ile tutarlı)
+                    const uniqueDates = [...new Set(window.allData
+                        .filter(item => !window.shouldHideItem(item))
+                        .map(item => item.date)
+                        .filter(Boolean))];
                     const dailyAverage = uniqueDates.length > 0 ? totalUSD / uniqueDates.length : 0;
                     const dailyAverageEl = document.getElementById('dailyAverage');
                     if (dailyAverageEl) {
                         dailyAverageEl.textContent = '$' + dailyAverage.toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
                     }
                     
-                    // Sepet Ortalaması Hesapla (Toplam USD / Fatura Sayısı)
-                    const uniqueInvoices = new Set(window.allData.map(item => item.move_name).filter(Boolean)).size;
-                    const basketAverage = uniqueInvoices > 0 ? totalUSD / uniqueInvoices : 0;
-                    const basketAverageEl = document.getElementById('basketAverage');
-                    if (basketAverageEl) {
-                        basketAverageEl.textContent = '$' + basketAverage.toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                    }
+                    // Sepet Ortalaması Hesapla (Sadece Satış Faturalarının Toplamı / Satış Fatura Sayısı)
+                    // DÜZELTME: Dashboard ve summary-cards ile aynı mantık
+                    const salesInvoices = window.allData.filter(item => {
+                        if (window.shouldHideItem && window.shouldHideItem(item)) return false;
+                        if (item.move_type === 'out_refund') return false;
+                        const amount = parseFloat(item.usd_amount || 0);
+                        return amount > 0 && (item.move_type === 'out_invoice' || !item.move_type);
+                    });
+                    
+                    // Invoice key'ler sadece move_name veya move_id kullanmalı (product YOK)
+                    const invoiceKeys = salesInvoices
+                        .map(item => item.move_name || item.move_id || `${item.date || ''}-${item.partner || ''}-${item.store || ''}`)
+                        .filter(Boolean);
+                    const uniqueInvoices = new Set(invoiceKeys).size;
+                    
+                    // Sadece satış faturalarının toplamını kullan
+                    const salesInvoicesTotal = salesInvoices.reduce((sum, item) => {
+                        return sum + parseFloat(item.usd_amount || 0);
+                    }, 0);
+                    // NOT: basketAverage elementi HTML'de yok, sadece dashBasketAverage var
+                    // Bu hesaplama gereksiz - updateSummary() zaten dashBasketAverage'i güncelliyor (satır 872)
+                    // Burada güncelleme yapmıyoruz, updateSummary() zaten çağrılıyor
                 }
                 
                 // Dashboard'ı güncelle - sadece grafikleri yenile, veri yükleme yapma
@@ -951,18 +970,33 @@ export async function loadRemainingYears(skipYear) {
 let selectedYears = new Set(); // Seçili yılları tut
 let yearToggleLock = false; // Yıl toggle işlemi devam ederken başka işlem engelle
 let yearUpdateTimeout = null; // Debounce için
-let dataStatusCache = { totalUSD: 0, uniqueDates: null, uniqueInvoices: 0 };
+let dataStatusCache = { totalUSD: 0, uniqueDates: null, uniqueInvoices: 0, salesInvoicesTotal: 0, allDataLength: 0 };
 
 /**
  * Yıl toggle'larını initialize et
  */
 export function initializeYearToggles(availableYears) {
-    // Varsayılan: sadece en güncel yıl seçili (ör: 2025)
-    const latestYear = (availableYears
-        .map(y => y.toString())
-        .sort((a,b) => parseInt(a) - parseInt(b))
-        .pop());
-    selectedYears = new Set([latestYear]);
+    // DÜZELTME: Varsayılan olarak 2025, 2024 ve 2023 aktif (eğer mevcutlarsa)
+    const yearsToSelect = [];
+    const availableYearsStr = availableYears.map(y => y.toString());
+    
+    // 2025, 2024, 2023'ü kontrol et ve varsa ekle
+    ['2025', '2024', '2023'].forEach(year => {
+        if (availableYearsStr.includes(year)) {
+            yearsToSelect.push(year);
+        }
+    });
+    
+    // Eğer hiçbiri yoksa, en güncel yılı seç (fallback)
+    if (yearsToSelect.length === 0 && availableYears.length > 0) {
+        const latestYear = (availableYears
+            .map(y => y.toString())
+            .sort((a,b) => parseInt(a) - parseInt(b))
+            .pop());
+        yearsToSelect.push(latestYear);
+    }
+    
+    selectedYears = new Set(yearsToSelect);
     // Modül erişimi için window'a da ekle (ÖNEMLİ: container yoksa bile set et)
     window.selectedYears = selectedYears;
     
@@ -1373,10 +1407,13 @@ export function updateDataStatusOptimized() {
             }
             
             // Günlük Ortalama (cache'lenebilir - optimize edilmiş)
+            // DÜZELTME: shouldHideItem ile filtrelenmiş veriden unique dates hesapla (Dashboard ile tutarlı)
             if (!dataStatusCache.uniqueDates || dataStatusCache.totalUSD !== totalUSD) {
                 // Tek iterate'de unique dates hesapla (optimize edilmiş)
                 const uniqueDatesSet = new Set();
                 for (const item of allData) {
+                    // shouldHideItem kontrolü (iadeler ve indirim ürünleri filtreleniyor)
+                    if (shouldHideItem(item)) continue;
                     if (item.date) uniqueDatesSet.add(item.date);
                 }
                 dataStatusCache.uniqueDates = Array.from(uniqueDatesSet);
@@ -1389,21 +1426,33 @@ export function updateDataStatusOptimized() {
             }
             
             // Sepet Ortalaması (cache'lenebilir - optimize edilmiş)
-            if (dataStatusCache.uniqueInvoices === 0 || dataStatusCache.totalUSD !== totalUSD) {
-                // Tek iterate'de unique invoices hesapla (optimize edilmiş)
+            // DÜZELTME: Dashboard ve summary-cards ile aynı mantık
+            // Cache kontrolü: totalUSD değiştiyse veya cache boşsa yeniden hesapla
+            // NOT: uniqueInvoices === 0 kontrolü kaldırıldı çünkü ilk yüklemede 0 olabilir
+            if (dataStatusCache.totalUSD !== totalUSD || dataStatusCache.salesInvoicesTotal === undefined || dataStatusCache.allDataLength !== allData.length) {
+                // Tek iterate'de satış faturalarını hesapla (optimize edilmiş)
                 const uniqueInvoicesSet = new Set();
+                let salesInvoicesTotal = 0;
                 for (const item of allData) {
-                    if (item.move_type === 'out_invoice' && item.move_name) {
-                        uniqueInvoicesSet.add(item.move_name);
+                    if (shouldHideItem(item)) continue;
+                    const amt = parseFloat(item.usd_amount || 0);
+                    // Sadece satış faturaları (iade değil) ve pozitif tutarlı
+                    if (amt > 0 && item.move_type !== 'out_refund' && (item.move_type === 'out_invoice' || !item.move_type)) {
+                        salesInvoicesTotal += amt;
+                        // Invoice key'ler sadece move_name veya move_id kullanmalı (product YOK)
+                        const invoiceKey = item.move_name || item.move_id || `${item.date || ''}-${item.partner || ''}-${item.store || ''}`;
+                        if (invoiceKey) {
+                            uniqueInvoicesSet.add(invoiceKey);
+                        }
                     }
                 }
                 dataStatusCache.uniqueInvoices = uniqueInvoicesSet.size;
+                dataStatusCache.salesInvoicesTotal = salesInvoicesTotal;
+                dataStatusCache.allDataLength = allData.length;
             }
-            const basketAverage = dataStatusCache.uniqueInvoices > 0 ? totalUSD / dataStatusCache.uniqueInvoices : 0;
-            const basketAverageEl = document.getElementById('basketAverage');
-            if (basketAverageEl) {
-                basketAverageEl.textContent = '$' + basketAverage.toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            }
+            // NOT: basketAverage elementi HTML'de yok, sadece dashBasketAverage var
+            // dashBasketAverage updateSummary() tarafından güncelleniyor
+            // Burada güncelleme yapmıyoruz, gereksiz hesaplama
         });
     }
 }

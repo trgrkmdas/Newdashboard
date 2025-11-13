@@ -578,24 +578,37 @@ export function updateAfterChannelFilter() {
     }
     
     // Günlük Ortalama Hesapla
-    const uniqueDates = [...new Set(allData.map(item => item.date))];
+    // DÜZELTME: shouldHideItem ile filtrelenmiş veriden unique dates hesapla (Dashboard ile tutarlı)
+    const uniqueDates = [...new Set(allData
+        .filter(item => !shouldHideItem(item))
+        .map(item => item.date)
+        .filter(Boolean))];
     const dailyAverage = uniqueDates.length > 0 ? totalUSD / uniqueDates.length : 0;
     const dailyAverageEl = document.getElementById('dailyAverage');
     if (dailyAverageEl) {
         dailyAverageEl.textContent = '$' + dailyAverage.toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
     }
     
-    // Sepet Ortalaması Hesapla (Toplam USD / Satış Fatura Sayısı - İadeler Hariç)
-    const invoiceKeys = allData
-        .filter(item => {
-            const amt = parseFloat(item.usd_amount || 0);
-            if (item.move_type) return item.move_type === 'out_invoice';
-            return amt > 0;
-        })
-        .map(item => item.move_name || item.move_id || `${item.date || ''}-${item.partner || ''}-${item.store || ''}-${item.product || ''}`)
+    // Sepet Ortalaması Hesapla (Sadece Satış Faturalarının Toplamı / Satış Fatura Sayısı - İadeler Hariç)
+    // DÜZELTME: Dashboard ve summary-cards ile aynı mantık
+    const salesInvoices = allData.filter(item => {
+        if (shouldHideItem(item)) return false;
+        if (item.move_type === 'out_refund') return false;
+        const amount = parseFloat(item.usd_amount || 0);
+        return amount > 0 && (item.move_type === 'out_invoice' || !item.move_type);
+    });
+    
+    // Invoice key'ler sadece move_name veya move_id kullanmalı (product YOK)
+    const invoiceKeys = salesInvoices
+        .map(item => item.move_name || item.move_id || `${item.date || ''}-${item.partner || ''}-${item.store || ''}`)
         .filter(Boolean);
     const uniqueInvoices = new Set(invoiceKeys).size;
-    const basketAverage = uniqueInvoices > 0 ? totalUSD / uniqueInvoices : 0;
+    
+    // Sadece satış faturalarının toplamını kullan
+    const salesInvoicesTotal = salesInvoices.reduce((sum, item) => {
+        return sum + parseFloat(item.usd_amount || 0);
+    }, 0);
+    const basketAverage = uniqueInvoices > 0 ? salesInvoicesTotal / uniqueInvoices : 0;
     const basketAverageEl = document.getElementById('basketAverage');
     if (basketAverageEl) {
         basketAverageEl.textContent = '$' + basketAverage.toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
